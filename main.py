@@ -181,7 +181,7 @@ def print_menu(menu):
                 # Upload
                 return 4
             case "4":
-                # Todo
+                # Todolist
                 return 5
             case "5":
                 # Status
