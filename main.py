@@ -40,8 +40,7 @@ def missing_exif(file_path, output_path, no_exif):
 
 def camera_dir(output_path, file_path, tags, file_count):
     if not os.path.exists(output_path + "/" + str(tags["Image Model"])):
-        print(tags["Image Model"])
-        print("Camera specific folder does not exist")
+        print("Camera specific folder for " + str(tags["Image Model"]) + " does not exist")
         print("Creating one now")
         os.mkdir(output_path + "/" + str(tags["Image Model"]))
     else:
@@ -64,14 +63,22 @@ def ingest(ingest_logs, file_list):
     no_exif = []
     file_count = 0
     root_output_dir = "/Users/sudesh/Pictures/Multimedia/"
-    ignored_volumes = ["Macintosh HD", ".timemachine", "com.apple.TimeMachine.localsnapshots"]
+    ignored_volumes = [""]
     print("\nIngest mode"
-          "\nCurrently attached volumes")
+          "\nCurrently attached volumes"
+          "\nPlease wait as sizes are calculated. ")
+
     for entry in os.listdir("/Volumes"):
-        os.path.join("/Volumes", entry)
-        print("- " + entry)
+        volume = os.path.join("/Volumes", entry)
+        dir_size = round(shutil.disk_usage(volume).total / 1000000000)
+        print("- " + entry + " " + "(" + str(dir_size) + " gigabytes)")
+
+        if dir_size > 128:
+            ignored_volumes.append(entry)
         if entry in ignored_volumes:
             print("  ^ This volume will be ignored")
+
+    print("\nSizes are approximate\n")
     sleep(1)
     event_name = input("What event are these files from?\n> ")
     output_path = root_output_dir + event_name
@@ -117,14 +124,16 @@ def ingest(ingest_logs, file_list):
                                 print("Cannot ingest this file (Invalid file type): " + file_path)
 
             print("\nFiles ingested: " + str(file_count) + "\n")
-            print("These files did not have camera information in their EXIF data: ")
-            for i in range(0, len(no_exif)):
-                print(no_exif[i])
-            print("They have been placed in a separate folder (Other)\n")
+
+            if len(no_exif) > 0:
+                print("These files did not have camera information in their EXIF data: ")
+                for i in range(0, len(no_exif)):
+                    print(no_exif[i])
+                print("They have been placed in a separate folder (Other)\n")
 
             more_files = input("Are there more files to transfer? (Yes/No)"
                                "\nIf you have another storage device, plug it in now.\n")
-            if more_files in ["No", "no", "N", "n", "NO"]:
+            if more_files in ["No", "no", "N", "n", "NO", "Nup", "Nah", "nup", "nah"]:
                 ingest_logs.append("[" + str(datetime.today()) + "] " + " files ingested")
                 return output_path
             if more_files in ["Yes", "yes", "Y", "y", "YES"]:
@@ -140,25 +149,21 @@ def delegate(available_files, output):
     names = name_input.split(",")
     print(output)
 
-    for x in range(len(names)):
-        try:
-            for i in range(len(names)):
-                for f in range(round(len(available_files)/len(names))):
-                    if not os.path.exists(output + "/" + names[i].strip()):
-                        print("Directory for " + names[i].strip())
-                        os.mkdir(output + "/" + names[i].strip())
-                        shutil.copy(available_files[f], output + "/" + names[i].strip())
-                    else:
-                        shutil.copy(available_files[f], output + "/" + names[i].strip())
-        except FileNotFoundError:
-            print("File not found error: " + available_files[f])
+    for n in range(len(names)):
+        print(names[n])
+        os.mkdir(output + "names[n]")
+
+    for i in range(len(available_files)):
+        for f in range(len(names)):
+            print(names[f])
+            print(available_files[i])
 
 
 def upload():
     return 0
 
 
-def print_menu(menu):
+def print_menu():
     print("\n[0] About"
           "\n[1] Ingest"
           "\n[2] Delegate"
@@ -220,7 +225,7 @@ def main():
     while True:
         match current_menu:
             case 0:
-                current_menu = print_menu(current_menu)
+                current_menu = print_menu()
             case 1:
                 about()
                 current_menu = 0
