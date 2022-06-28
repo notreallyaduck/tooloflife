@@ -108,8 +108,8 @@ def ingest(ingest_logs, file_list):
                                 except KeyError:
                                     if file_is_media(file_path):
                                         missing_exif(file_path, output_path, no_exif)
-                                        file_list.append(output_path + "/Other/" +
-                                                         os.path.basename(file_path))
+                                        file_count = file_count + 1
+                                        file_list.append(output_path + "/Other/" + os.path.basename(file_path))
                                 except PermissionError:
                                     if file_is_media(file_path):
                                         print("File skipped due to permission error")
@@ -120,6 +120,7 @@ def ingest(ingest_logs, file_list):
                                     file_count = file_count + camera_dir(output_path, file_path, tags)
                                     file_list.append(output_path + "/" + str(tags["Image Model"]) + "/" +
                                                      os.path.basename(file_path))
+                                print("You've ingested " + str(file_count) + " files")
 
                             else:
                                 print("Cannot ingest this file (Invalid file type): " + file_path)
@@ -135,7 +136,7 @@ def ingest(ingest_logs, file_list):
             more_files = input("Are there more files to transfer? (Yes/No)"
                                "\nIf you have another storage device, plug it in now.\n")
             if more_files in ["No", "no", "N", "n", "NO", "Nup", "Nah", "nup", "nah"]:
-                ingest_logs.append("[" + str(datetime.today()) + "] " + " files ingested")
+                ingest_logs.append("[" + str(datetime.today()) + "] " + str(file_count) + " files ingested")
                 return output_path
             if more_files in ["Yes", "yes", "Y", "y", "YES"]:
                 print("Looking for new drives")
@@ -160,11 +161,15 @@ def delegate(available_files, output):
         named_dir = output + "/Delegations/" + str(n).strip() + "/"
         os.mkdir(named_dir)
         num_folder_items = round(len(available_files) / len(names))
+        num_copied_files = 0
 
-        for x in range(num_folder_items + len(copied_files)):
-            if available_files[x] not in copied_files:
-                shutil.copy(available_files[x], named_dir)
-                copied_files.append(available_files[x])
+        for x in available_files:
+            if num_copied_files == num_folder_items:
+                break
+            elif x not in copied_files:
+                shutil.copy(x, named_dir)
+                copied_files.append(x)
+                num_copied_files = num_copied_files + 1
             else:
                 continue
 
