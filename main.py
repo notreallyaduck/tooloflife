@@ -38,11 +38,12 @@ def missing_exif(file_path, output_path, no_exif):
         shutil.copy(file_path, output_path + "/Other")
 
 
-def camera_dir(output_path, file_path, tags, file_count):
+def camera_dir(output_path, file_path, tags):
     if not os.path.exists(output_path + "/" + str(tags["Image Model"])):
         print("Camera specific folder for " + str(tags["Image Model"]) + " does not exist")
         print("Creating one now")
         os.mkdir(output_path + "/" + str(tags["Image Model"]))
+        shutil.copy(file_path, output_path + "/" + str(tags["Image Model"]))
     else:
         shutil.copy(file_path, output_path + "/" + str(tags["Image Model"]))
     return 1
@@ -51,9 +52,9 @@ def camera_dir(output_path, file_path, tags, file_count):
 def file_is_media(file_path):
     if file_path.endswith(".JPG") or file_path.endswith(".jpg") \
             or file_path.endswith(".NEF") or file_path.endswith(".CR2") \
-            or file_path.endswith(".dng") or file_path.endswith(".CR3") \
+            or file_path.endswith(".dng") or file_path.endswith(".ORF") \
             or file_path.endswith(".AVCHD") or file_path.endswith(".avi") \
-            or file_path.endswith(".mp4") or file_path.endswith(".mov"):
+            or file_path.endswith(".mp4") or file_path.endswith(".MOV"):
         return True
     else:
         return False
@@ -70,7 +71,7 @@ def ingest(ingest_logs, file_list):
 
     for entry in os.listdir("/Volumes"):
         volume = os.path.join("/Volumes", entry)
-        dir_size = round(shutil.disk_usage(volume).total / 1000000000)
+        dir_size = round(shutil.disk_usage(volume).total / 1280000000)
         print("- " + entry + " " + "(" + str(dir_size) + " gigabytes)")
 
         if dir_size > 128:
@@ -116,7 +117,7 @@ def ingest(ingest_logs, file_list):
                                     if file_is_media(file_path):
                                         print("File skipped due to duplication error")
                                 else:
-                                    file_count = file_count + camera_dir(output_path, file_path, tags, file_count)
+                                    file_count = file_count + camera_dir(output_path, file_path, tags)
                                     file_list.append(output_path + "/" + str(tags["Image Model"]) + "/" +
                                                      os.path.basename(file_path))
 
@@ -144,19 +145,30 @@ def ingest(ingest_logs, file_list):
 
 
 def delegate(available_files, output):
+
     name_input = input("Write the names of each editor separated by a comma. \n"
                        "(Steve, Matt Smith, Pikachu, Robbie, Anne)\n")
     names = name_input.split(",")
-    print(output)
+    copied_files = []
+    os.mkdir(output + "/Delegations/")
 
-    for n in range(len(names)):
-        print(names[n])
-        os.mkdir(output + "names[n]")
+    for y in available_files:
+        print(y)
 
-    for i in range(len(available_files)):
-        for f in range(len(names)):
-            print(names[f])
-            print(available_files[i])
+    for n in names:
+        print(n.strip())
+        named_dir = output + "/Delegations/" + str(n).strip() + "/"
+        os.mkdir(named_dir)
+        num_folder_items = round(len(available_files) / len(names))
+
+        for x in range(num_folder_items + len(copied_files)):
+            if available_files[x] not in copied_files:
+                shutil.copy(available_files[x], named_dir)
+                copied_files.append(available_files[x])
+            else:
+                continue
+
+        print("Photos for " + n.strip() + " have been copied")
 
 
 def upload():
