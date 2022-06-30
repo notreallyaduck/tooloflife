@@ -1,14 +1,26 @@
+import math
 import os
 import shutil
 import stat
+import webbrowser
 from datetime import datetime
 from time import sleep
 import exifread
+import tkinter as tk
+from tkinter import filedialog
 
 
 def has_hidden_attribute(filepath):
+    directory = filepath.split("/")
+    file_name = directory[-1]
+
     try:
-        return bool(os.stat(filepath).st_file_attributes & stat.FILE_ATTRIBUTE_HIDDEN)
+        if file_name.startswith("."):
+            return True
+        elif bool(os.stat(filepath).st_file_attributes & stat.FILE_ATTRIBUTE_HIDDEN) is True:
+            print(filepath)
+            print(bool(os.stat(filepath).st_file_attributes & stat.FILE_ATTRIBUTE_HIDDEN))
+            return True
     except AttributeError:
         return False
 
@@ -20,13 +32,18 @@ def about():
     input("\nPress Enter to go back to the main menu")
 
 
-def uniquify(output_path, filename, ingest_path, file_path, tags):
-    if os.path.exists(output_path + "/" + str(tags["Image Model"]) + "/" + filename):
+def duplicate(output_path, file_path, tag, duplicate_files):
+    directory = file_path.split("/")
+    file_name = directory[-1]
+
+    if os.path.exists(output_path + "/" + tag + "/" + file_name):
         print("Duplicate file names detected")
-        while os.path.exists(output_path + "/" + str(tags["Image Model"]) + "/" + filename):
-            # i += 1
-            name = file_path.split(".")
-            os.rename(file_path, ingest_path + "/" + name[1] + "i" + "." + name[2])
+        duplicate_files.append(file_path)
+        if not os.path.exists(output_path + "/Duplicates"):
+            os.mkdir(output_path + "/Duplicates")
+            shutil.copy(file_path, output_path + "/Duplicates")
+        else:
+            shutil.copy(file_path, output_path + "/Duplicates")
 
 
 def missing_exif(file_path, output_path, no_exif):
@@ -38,23 +55,26 @@ def missing_exif(file_path, output_path, no_exif):
         shutil.copy(file_path, output_path + "/Other")
 
 
-def camera_dir(output_path, file_path, tags):
-    if not os.path.exists(output_path + "/" + str(tags["Image Model"])):
-        print("Camera specific folder for " + str(tags["Image Model"]) + " does not exist")
+def camera_dir(output_path, file_path, tag):
+    if not os.path.exists(output_path + "/" + tag):
+        print("Camera specific folder for " + tag + " does not exist")
         print("Creating one now")
-        os.mkdir(output_path + "/" + str(tags["Image Model"]))
-        shutil.copy(file_path, output_path + "/" + str(tags["Image Model"]))
+        os.mkdir(output_path + "/" + tag)
+        shutil.copy(file_path, output_path + "/" + tag)
     else:
-        shutil.copy(file_path, output_path + "/" + str(tags["Image Model"]))
-    return 1
+        shutil.copy(file_path, output_path + "/" + tag)
 
 
 def file_is_media(file_path):
-    if file_path.endswith(".JPG") or file_path.endswith(".jpg") \
-            or file_path.endswith(".NEF") or file_path.endswith(".CR2") \
-            or file_path.endswith(".dng") or file_path.endswith(".ORF") \
-            or file_path.endswith(".AVCHD") or file_path.endswith(".avi") \
-            or file_path.endswith(".mp4") or file_path.endswith(".MOV"):
+    directory = file_path.split("/")
+    file_name = directory[-1]
+    file_suffix = file_name.split(".")
+    file_type = file_suffix[-1].lower()
+
+    if file_type == "jpg" or file_type == "nef" or file_type == "cr2" or file_type == "dng" \
+            or file_type == "jpg" or file_type == "nef" or file_type == "cr2" or file_type == "dng" \
+            or file_type == "orf" or file_type == "avchd" or file_type == "avi" or file_type == "mp4" \
+            or file_type == "mov":
         return True
     else:
         return False
@@ -62,7 +82,9 @@ def file_is_media(file_path):
 
 def ingest(ingest_logs, file_list):
     no_exif = []
+    duplicate_files = []
     file_count = 0
+    file_path = []
     root_output_dir = "/Users/sudesh/Pictures/Multimedia/"
     ignored_volumes = [""]
     print("\nIngest mode"
@@ -72,7 +94,7 @@ def ingest(ingest_logs, file_list):
     for entry in os.listdir("/Volumes"):
         volume = os.path.join("/Volumes", entry)
         dir_size = round(shutil.disk_usage(volume).total / 1280000000)
-        print("- " + entry + " " + "(" + str(dir_size) + " gigabytes)")
+        print(f"- {entry} ({str(dir_size)} gigabytes)")
 
         if dir_size > 128:
             ignored_volumes.append(entry)
@@ -83,60 +105,75 @@ def ingest(ingest_logs, file_list):
     sleep(1)
     event_name = input("What event are these files from?\n> ")
     output_path = root_output_dir + event_name
+
     if os.path.exists(output_path):
-        print("Path already exists (No changes made)")
+        pass
     else:
         os.mkdir(output_path)
+
     if os.path.exists("/Volumes/"):
         while True:
             for entry in os.listdir("/Volumes"):
                 os.path.join("/Volumes", entry)
+
                 if entry not in ignored_volumes:
                     ingest_path = "/Volumes/" + entry
                     ignored_volumes.append(entry)
+
                     for root, dirs, files in os.walk(ingest_path):
                         for name in files:
+                            file_path.append(os.path.join(root, name))
 
-                            file_path = os.path.join(root, name)
+            print(f"{len(file_path)} files to ingest")
 
-                            if file_is_media(file_path) and has_hidden_attribute(file_path) is False:
-                                file = open(file_path, 'rb')
-                                tags = exifread.process_file(file, stop_tag='Model')
+            for item in file_path:
+                if has_hidden_attribute(item) is False and file_is_media(item):
+                    file = open(item, 'rb')
+                    tags = exifread.process_file(file, stop_tag='Model')
 
-                                try:
-                                    tags["Image Model"]
-                                except KeyError:
-                                    if file_is_media(file_path):
-                                        missing_exif(file_path, output_path, no_exif)
-                                        file_count = file_count + 1
-                                        file_list.append(output_path + "/Other/" + os.path.basename(file_path))
-                                except PermissionError:
-                                    if file_is_media(file_path):
-                                        print("File skipped due to permission error")
-                                except shutil.Error:
-                                    if file_is_media(file_path):
-                                        print("File skipped due to duplication error")
-                                else:
-                                    file_count = file_count + camera_dir(output_path, file_path, tags)
-                                    file_list.append(output_path + "/" + str(tags["Image Model"]) + "/" +
-                                                     os.path.basename(file_path))
-                                print("You've ingested " + str(file_count) + " files")
+                    try:
+                        tag = str(tags["Image Model"])
+                        duplicate(output_path, item, tag, duplicate_files)
+                        camera_dir(output_path, item, tag)
+                        file_list.append(output_path + "/" + tag + "/" + os.path.basename(item))
+                        file_count = file_count + 1
+                    except KeyError:
+                        tag = "Other"
+                        duplicate(output_path, item, tag, duplicate_files)
+                        missing_exif(item, output_path, no_exif)
+                        file_list.append(output_path + "/" + tag + "/" + os.path.basename(item))
+                        file_count = file_count + 1
+                    except PermissionError:
+                        pass
+                    except shutil.Error:
+                        pass
 
-                            else:
-                                print("Cannot ingest this file (Invalid file type): " + file_path)
+                    print(f"Ingested: {item} ({str(file_count)})")
 
-            print("\nFiles ingested: " + str(file_count) + "\n")
+                elif has_hidden_attribute(item) is True:
+                    pass
+
+                elif file_is_media(item) is False:
+                    pass
+
+            print("\nIngested " + str(file_count) + " files\n")
 
             if len(no_exif) > 0:
                 print("These files did not have camera information in their EXIF data: ")
-                for i in range(0, len(no_exif)):
-                    print(no_exif[i])
+                for i in no_exif:
+                    print(i)
                 print("They have been placed in a separate folder (Other)\n")
+
+            if len(duplicate_files) > 0:
+                print("These files had duplicate filenames: ")
+                for i in duplicate_files:
+                    print(i)
+                print("They have been placed in a separate folder (Duplicates)\n")
 
             more_files = input("Are there more files to transfer? (Yes/No)"
                                "\nIf you have another storage device, plug it in now.\n")
             if more_files in ["No", "no", "N", "n", "NO", "Nup", "Nah", "nup", "nah"]:
-                ingest_logs.append("[" + str(datetime.today()) + "] " + str(file_count) + " files ingested")
+                ingest_logs.append(f"[{str(datetime.today())}]  + {str(file_count)} files ingested")
                 return output_path
             if more_files in ["Yes", "yes", "Y", "y", "YES"]:
                 print("Looking for new drives")
@@ -145,75 +182,75 @@ def ingest(ingest_logs, file_list):
                 print("Type Yes or No")
 
 
-def delegate(available_files, output):
+def delegate(delegate_logs, available_files, output):
+
+    files_out = output
+
+    if output:
+        print("Would you like to use the files you just ingested or do you want to select a different folder?"
+              "\nPress enter to use ingested files or type New to select a new folder")
+        new_folder = input()
+        if new_folder == "New" or "new" or "n" or "New Folder" or "new folder":
+            del output
+
+    while not files_out:
+        root = tk.Tk()
+        root.withdraw()
+        files_out = filedialog.askdirectory()
+        available_files.clear()
+
+    for root, dirs, files in os.walk(files_out):
+        for name in files:
+            if "Delegations" and "Duplicates" not in root:
+                file_path = os.path.join(root, name)
+                available_files.append(file_path)
 
     name_input = input("Write the names of each editor separated by a comma. \n"
                        "(Steve, Matt Smith, Pikachu, Robbie, Anne)\n")
     names = name_input.split(",")
-    copied_files = []
-    os.mkdir(output + "/Delegations/")
 
-    for y in available_files:
-        print(y)
+    try:
+        os.mkdir(files_out + "/Delegations/")
+    except FileExistsError:
+        print("Delegations folder already exists"
+              "\nNo changes made")
+    except OSError:
+        print("Delegations folder is read only, please check permissions")
 
-    for n in names:
-        print(n.strip())
-        named_dir = output + "/Delegations/" + str(n).strip() + "/"
-        os.mkdir(named_dir)
-        num_folder_items = round(len(available_files) / len(names))
-        num_copied_files = 0
+    files_len = len(available_files)
 
-        for x in available_files:
-            if num_copied_files == num_folder_items:
-                break
-            elif x not in copied_files:
-                shutil.copy(x, named_dir)
-                copied_files.append(x)
-                num_copied_files = num_copied_files + 1
+    for index, name in enumerate(names):
+
+        name = name.strip()
+
+        each_user = math.floor(files_len / len(names))
+        my_index = each_user * index
+        my_files = available_files.copy()[my_index:(each_user * (index + 1)) + 1]
+
+        path = files_out + f"/Delegations/{name}"
+
+        try:
+            os.mkdir(path)
+        except FileExistsError:
+            pass
+        except FileNotFoundError:
+            print("Folder does not exist")
+            return
+        for file in my_files:
+            print(file)
+            if has_hidden_attribute(file) is False and file_is_media(file) is True:
+                shutil.copy(file, path)
             else:
-                continue
+                pass
 
-        print("Photos for " + n.strip() + " have been copied")
+        delegate_logs.append(f"[{str(datetime.today())}] Files delegated to {len(names)} people")
+
+        print(my_files)
+        print(f"{name} was delegated {len(my_files)} files in folder {path}")
 
 
 def upload():
     return 0
-
-
-def print_menu():
-    print("\n[0] About"
-          "\n[1] Ingest"
-          "\n[2] Delegate"
-          "\n[3] Upload"
-          "\n[4] Todo"
-          "\n[5] Status"
-          "\n[6] Logs")
-    selected_option = input("> ")
-    while True:
-        match selected_option:
-            case "0":
-                # About
-                return 1
-            case "1":
-                return 2
-            case "2":
-                # Delegate
-                return 3
-            case "3":
-                # Upload
-                return 4
-            case "4":
-                # Todolist
-                return 5
-            case "5":
-                # Status
-                return 6
-            case "6":
-                # Logs
-                return 7
-            case _:
-                print("Pick an option")
-                return 0
 
 
 def todo():
@@ -234,36 +271,41 @@ def logs(stored_logs):
 
 def main():
     stored_logs = []
-    current_menu = 0
     path = ""
+    app_dir = "/Users/sudesh/Pictures/Multimedia"
     stored_files = []
     print("tooloflife v0.0.1")
     sleep(0.5)
     while True:
+        print("\n[0] About"
+              "\n[1] Ingest"
+              "\n[2] Delegate"
+              "\n[3] Upload"
+              "\n[4] Todo"
+              "\n[5] Status"
+              "\n[6] Logs"
+              "\n[7] Open Folder")
+        current_menu = input("> ").strip()
+
         match current_menu:
-            case 0:
-                current_menu = print_menu()
-            case 1:
-                about()
-                current_menu = 0
-            case 2:
+            case "0":
+                continue
+            case "1":
                 path = ingest(stored_logs, stored_files)
-                current_menu = 0
-            case 3:
-                delegate(stored_files, path)
-                current_menu = 0
-            case 4:
+            case "2":
+                delegate(stored_logs, stored_files, path)
+            case "3":
                 upload()
-                current_menu = 0
-            case 5:
+            case "4":
                 todo()
-                current_menu = 0
-            case 6:
+            case "5":
                 status()
-                current_menu = 0
-            case 7:
+            case "6":
                 logs(stored_logs)
-                current_menu = 0
+            case "7":
+                webbrowser.open("file:///" + os.path.realpath(app_dir))
+            case _:
+                print("Select a valid option")
 
 
 if __name__ == '__main__':
