@@ -212,8 +212,7 @@ def delegate(delegate_logs, available_files, output):
     try:
         os.mkdir(files_out + "/Delegations/")
     except FileExistsError:
-        print("Delegations folder already exists"
-              "\nNo changes made")
+        pass
     except OSError:
         print("Delegations folder is read only, please check permissions")
 
