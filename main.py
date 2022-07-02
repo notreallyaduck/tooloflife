@@ -37,7 +37,6 @@ def duplicate(output_path, file_path, tag, duplicate_files):
     file_name = directory[-1]
 
     if os.path.exists(output_path + "/" + tag + "/" + file_name):
-        print("Duplicate file names detected")
         duplicate_files.append(file_path)
         if not os.path.exists(output_path + "/Duplicates"):
             os.mkdir(output_path + "/Duplicates")
@@ -46,13 +45,21 @@ def duplicate(output_path, file_path, tag, duplicate_files):
             shutil.copy(file_path, output_path + "/Duplicates")
 
 
-def missing_exif(file_path, output_path, no_exif):
-    no_exif.append(file_path)
-    if not os.path.exists(output_path + "/Other"):
-        os.mkdir(output_path + "/Other")
-        shutil.copy(file_path, output_path + "/Other")
-    else:
-        shutil.copy(file_path, output_path + "/Other")
+def missing_exif(file_path, output_path, no_exif, movies, media_type):
+    if media_type == "Image":
+        no_exif.append(file_path)
+        if not os.path.exists(output_path + "/Other"):
+            os.mkdir(output_path + "/Other")
+            shutil.copy(file_path, output_path + "/Other")
+        else:
+            shutil.copy(file_path, output_path + "/Other")
+    if media_type == "Movie":
+        movies.append(file_path)
+        if not os.path.exists(output_path + "/Videos"):
+            os.mkdir(output_path + "/Videos")
+            shutil.copy(file_path, output_path + "/Videos")
+        else:
+            shutil.copy(file_path, output_path + "/Videos")
 
 
 def camera_dir(output_path, file_path, tag):
@@ -73,20 +80,23 @@ def file_is_media(file_path):
 
     if file_type == "jpg" or file_type == "nef" or file_type == "cr2" or file_type == "dng" \
             or file_type == "jpg" or file_type == "nef" or file_type == "cr2" or file_type == "dng" \
-            or file_type == "orf" or file_type == "avchd" or file_type == "avi" or file_type == "mp4" \
-            or file_type == "mov":
-        return True
+            or file_type == "orf":
+        return "Image"
+    elif file_type == "avchd" or file_type == "avi" or file_type == "mp4" or file_type == "mov":
+        return "Movie"
     else:
         return False
 
 
 def ingest(ingest_logs, file_list):
     no_exif = []
+    movies_list = []
     duplicate_files = []
     file_count = 0
     file_path = []
+    processed_files = []
     root_output_dir = "/Users/sudesh/Pictures/Multimedia/"
-    ignored_volumes = [""]
+    ignored_volumes = []
     print("\nIngest mode"
           "\nCurrently attached volumes"
           "\nPlease wait as sizes are calculated. ")
@@ -124,31 +134,39 @@ def ingest(ingest_logs, file_list):
                         for name in files:
                             file_path.append(os.path.join(root, name))
 
-            print(f"{len(file_path)} files to ingest")
+            print(f"\n{len(file_path)} files to process\n")
 
             for item in file_path:
-                if has_hidden_attribute(item) is False and file_is_media(item):
-                    file = open(item, 'rb')
-                    tags = exifread.process_file(file, stop_tag='Model')
 
+                file_type = file_is_media(item)
+
+                processed_files.append(item)
+                completion = round(len(processed_files) / len(file_path) * 100)
+
+                print(f"{completion} percent processed")
+
+                if has_hidden_attribute(item) is False and file_type:
                     try:
-                        tag = str(tags["Image Model"])
-                        duplicate(output_path, item, tag, duplicate_files)
-                        camera_dir(output_path, item, tag)
-                        file_list.append(output_path + "/" + tag + "/" + os.path.basename(item))
-                        file_count = file_count + 1
-                    except KeyError:
-                        tag = "Other"
-                        duplicate(output_path, item, tag, duplicate_files)
-                        missing_exif(item, output_path, no_exif)
-                        file_list.append(output_path + "/" + tag + "/" + os.path.basename(item))
-                        file_count = file_count + 1
+                        file = open(item, 'rb')
+                        tags = exifread.process_file(file, stop_tag='Model')
+                        try:
+                            tag = str(tags["Image Model"])
+                            duplicate(output_path, item, tag, duplicate_files)
+                            camera_dir(output_path, item, tag)
+                            file_list.append(output_path + "/" + tag + "/" + os.path.basename(item))
+                            file_count = file_count + 1
+                        except KeyError:
+                            tag = "Other"
+                            duplicate(output_path, item, tag, duplicate_files)
+                            missing_exif(item, output_path, no_exif, movies_list, file_type)
+                            file_list.append(output_path + "/" + tag + "/" + os.path.basename(item))
+                            file_count = file_count + 1
                     except PermissionError:
                         pass
                     except shutil.Error:
                         pass
-
-                    print(f"Ingested: {item} ({str(file_count)})")
+                    except TypeError:
+                        pass
 
                 elif has_hidden_attribute(item) is True:
                     pass
@@ -157,6 +175,7 @@ def ingest(ingest_logs, file_list):
                     pass
 
             print("\nIngested " + str(file_count) + " files\n")
+            processed_files.clear()
 
             if len(no_exif) > 0:
                 print("These files did not have camera information in their EXIF data: ")
@@ -172,18 +191,27 @@ def ingest(ingest_logs, file_list):
 
             more_files = input("Are there more files to transfer? (Yes/No)"
                                "\nIf you have another storage device, plug it in now.\n")
+
             if more_files in ["No", "no", "N", "n", "NO", "Nup", "Nah", "nup", "nah"]:
                 ingest_logs.append(f"[{str(datetime.today())}]  + {str(file_count)} files ingested")
+                no_exif.clear()
+                movies_list.clear()
+                duplicate_files.clear()
+                ignored_volumes.clear()
+                processed_files.clear()
                 return output_path
+
             if more_files in ["Yes", "yes", "Y", "y", "YES"]:
                 print("Looking for new drives")
                 continue
+
             else:
                 print("Type Yes or No")
 
 
-def delegate(delegate_logs, available_files, output):
-
+def delegate(delegate_logs, output):
+    available_files = []
+    copied_files = []
     files_out = output
 
     if output:
@@ -197,7 +225,6 @@ def delegate(delegate_logs, available_files, output):
         root = tk.Tk()
         root.withdraw()
         files_out = filedialog.askdirectory()
-        available_files.clear()
 
     for root, dirs, files in os.walk(files_out):
         for name in files:
@@ -222,9 +249,13 @@ def delegate(delegate_logs, available_files, output):
 
         name = name.strip()
 
-        each_user = math.floor(files_len / len(names))
-        my_index = each_user * index
-        my_files = available_files.copy()[my_index:(each_user * (index + 1)) + 1]
+        each_user = math.ceil(files_len / len(names))
+        my_files = []
+        files_before = each_user * (index - 1)
+        this_editor = []
+
+        for x in range(each_user):
+            my_files.append(available_files[files_before + x])
 
         path = files_out + f"/Delegations/{name}"
 
@@ -235,17 +266,19 @@ def delegate(delegate_logs, available_files, output):
         except FileNotFoundError:
             print("Folder does not exist")
             return
+
         for file in my_files:
             print(file)
             if has_hidden_attribute(file) is False and file_is_media(file) is True:
                 shutil.copy(file, path)
+                this_editor.append(file)
+                copied_files.append(file)
             else:
                 pass
 
         delegate_logs.append(f"[{str(datetime.today())}] Files delegated to {len(names)} people")
 
-        print(my_files)
-        print(f"{name} was delegated {len(my_files)} files in folder {path}")
+        print(f"{name} was delegated {len(this_editor)} files in folder {path}\n")
 
 
 def upload():
@@ -279,11 +312,8 @@ def main():
         print("\n[0] About"
               "\n[1] Ingest"
               "\n[2] Delegate"
-              "\n[3] Upload"
-              "\n[4] Todo"
-              "\n[5] Status"
-              "\n[6] Logs"
-              "\n[7] Open Folder")
+              "\n[3] Logs"
+              "\n[4] Open Folder")
         current_menu = input("> ").strip()
 
         match current_menu:
@@ -292,16 +322,10 @@ def main():
             case "1":
                 path = ingest(stored_logs, stored_files)
             case "2":
-                delegate(stored_logs, stored_files, path)
+                delegate(stored_logs, path)
             case "3":
-                upload()
-            case "4":
-                todo()
-            case "5":
-                status()
-            case "6":
                 logs(stored_logs)
-            case "7":
+            case "4":
                 webbrowser.open("file:///" + os.path.realpath(app_dir))
             case _:
                 print("Select a valid option")
