@@ -32,7 +32,6 @@ def get_drives():
 def has_hidden_attribute(filepath):
     directory = filepath.split('/')
     file_name = directory[-1]
-
     try:
         if file_name.startswith('.'):
             return True
@@ -260,12 +259,15 @@ def delegate(delegate_logs, output):
     available_files = []
     copied_files = []
     files_out = output
+    types_to_delegate = []
+    mode = "Delegated Files"
 
-    if output:
+    if files_out:
         print('Would you like to use the files you just ingested or do you want to select a different folder?'
               '\nPress enter to use ingested files or type New to select a new folder')
         new_folder = input().strip()
-        if new_folder == 'New' or 'new' or 'n' or 'New Folder' or 'new folder':
+        if new_folder == 'New' or new_folder == 'new' or new_folder == 'n' or new_folder == 'New Folder' or \
+                new_folder == 'new folder':
             del output
 
     while not files_out:
@@ -273,60 +275,96 @@ def delegate(delegate_logs, output):
         root.withdraw()
         files_out = filedialog.askdirectory()
 
+    selected_mode = input(f'What files would you like to delegate from {str(files_out)}?'
+                          f'\n[1] Images'
+                          f'\n[2] Videos'
+                          f'\n[3] All available files\n').strip().lower()
+
+    if selected_mode == '1' or selected_mode == 'images' or selected_mode == 'photos' or selected_mode == 'pics':
+        types_to_delegate.append('Image')
+        mode = "Delegated Images"
+    elif selected_mode == '2' or selected_mode == 'videos' or selected_mode == 'movies' or selected_mode == 'vids':
+        types_to_delegate.append('Movie')
+        mode = "Delegated Videos"
+    elif selected_mode == '3' or selected_mode == 'all' or selected_mode == 'everything' or selected_mode == \
+            'all of it mate':
+        types_to_delegate.append('Movie')
+        types_to_delegate.append("Image")
+    else:
+        types_to_delegate.append('Movie')
+        types_to_delegate.append("Image")
+
     for root, dirs, files in os.walk(files_out):
         for name in files:
-            if 'Delegations' and 'Duplicates' not in root:
-                file_path = os.path.join(root, name)
+            file_path = os.path.join(root, name)
+            file_directories = file_path.split("/")
+            if "Delegated Files" in file_directories:
+                pass
+            elif "Delegated Images" in file_directories:
+                pass
+            elif "Delegated Videos" in file_directories:
+                pass
+            elif "Duplicates" in file_directories:
+                pass
+            elif has_hidden_attribute(file_path):
+                pass
+            elif file_is_media(file_path) not in types_to_delegate:
+                pass
+            else:
                 available_files.append(file_path)
 
-    name_input = input('Write the names of each editor separated by a comma. \n'
-                       '(Steve, Matt Smith, Pikachu, Robbie, Anne)\n')
-    names = name_input.split(',')
-
-    try:
-        os.mkdir(files_out + '/Delegations/')
-
-    except FileExistsError:
-        pass
-
-    except OSError:
-        print('Delegations folder is read only, please check permissions')
-
-    files_len = len(available_files)
-
-    for index, name in enumerate(names):
-        name = name.strip()
-        each_user = math.ceil(files_len / len(names))
-        my_files = []
-        files_before = each_user * (index - 1)
-        this_editor = []
-
-        for x in range(each_user):
-            my_files.append(available_files[files_before + x])
-
-        path = files_out + f'/Delegations/{name}'
+    if len(available_files) < 1:
+        print("No files to ingest in " + files_out)
+    else:
+        name_input = input('Write the names of each editor separated by a comma. \n'
+                           '(Steve, Matt Smith, Pikachu, Robbie, Anne)\n')
+        names = name_input.split(',')
 
         try:
-            os.mkdir(path)
+            os.mkdir(files_out + '/' + mode + '/')
 
         except FileExistsError:
             pass
 
-        except FileNotFoundError:
-            print('Folder does not exist')
-            return
+        except OSError:
+            print('Delegations folder is read only, please check permissions')
 
-        for file in my_files:
-            print(file)
-            if has_hidden_attribute(file) is False and file_is_media(file) == 'Media' or 'Image':
-                shutil.copy(file, path)
-                this_editor.append(file)
-                copied_files.append(file)
-            else:
+        files_len = len(available_files)
+
+        for index, name in enumerate(names):
+            name = name.strip()
+            each_user = math.ceil(files_len / len(names))
+            my_files = []
+            files_before = each_user * (index - 1)
+            this_editor = []
+
+            for x in range(each_user):
+                my_files.append(available_files[files_before + x])
+
+            path = files_out + "/" + mode + "/" + name + "/"
+
+            try:
+                os.mkdir(path)
+
+            except FileExistsError:
                 pass
 
-        print(f'{name} was delegated {len(this_editor)} files in folder {path}\n')
-    delegate_logs.append(f'[{str(datetime.today())}] Files delegated to {len(names)} people')
+            except FileNotFoundError:
+                print('Folder does not exist')
+                return
+
+            for file in my_files:
+                if file not in copied_files:
+                    print(file)
+                    shutil.copy(file, path)
+                    this_editor.append(file)
+                    copied_files.append(file)
+                else:
+                    pass
+
+            print(f'{name} was delegated {len(this_editor)} files in folder {path}\n')
+        delegate_logs.append(f'[{str(datetime.today())}] Files delegated to {len(names)} people')
+        types_to_delegate.clear()
 
 
 def logs(stored_logs):
@@ -346,7 +384,7 @@ def main():
     stored_logs = []
     path = ''
     stored_files = []
-    app_dir = ''
+    app_dir = '/Users/sudesh/Pictures/Multimedia'
 
     print(f'tooloflife v1.0.2 ({os.name})')
     sleep(0.5)
