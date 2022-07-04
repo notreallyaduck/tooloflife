@@ -134,7 +134,10 @@ def ingest(ingest_logs, file_list, root_output_dir):
     volumes = get_drives()
 
     for volume in volumes:
-        dir_size = round(shutil.disk_usage(volume).total / 1280000000)
+        try:
+            dir_size = round(shutil.disk_usage(volume).total / 1280000000)
+        except PermissionError:
+            dir_size = "-"
         print(f'- {volume} ({str(dir_size)} gigabytes)')
 
         if dir_size > 128:
@@ -339,7 +342,7 @@ def main():
     stored_files = []
     app_dir = ''
 
-    print('tooloflife v1.0.1')
+    print(f'tooloflife v1.0.2 ({os.name})')
     sleep(0.5)
 
     input('Press enter to select an output folder')
