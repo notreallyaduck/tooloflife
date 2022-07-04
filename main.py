@@ -206,12 +206,6 @@ def ingest(ingest_logs, file_list, root_output_dir):
                 missing_exif(item, output_path, no_exif, movies_list, file_type)
                 file_list.append(output_path + '/Videos/' + os.path.basename(item))
 
-            elif has_hidden_attribute(item) is True:
-                pass
-
-            elif file_is_media(item) is False:
-                pass
-
         print('\nIngested ' + str(len(file_list)) + ' files\n')
         processed_files.clear()
 
@@ -391,7 +385,7 @@ def main():
 
     input('Press enter to select an output folder')
 
-    while not app_dir:
+    while not app_dir or app_dir == "/":
         window = tk.Tk()
         window.withdraw()
         app_dir = filedialog.askdirectory()
