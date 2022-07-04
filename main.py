@@ -88,7 +88,10 @@ def missing_exif(file_path, output_path, no_exif, movies, media_type):
             shutil.copy(file_path, output_path + '/Videos')
 
         else:
-            shutil.copy(file_path, output_path + '/Videos')
+            try:
+                shutil.copy(file_path, output_path + '/Videos')
+            except OSError:
+                print("Something went wrong: " + file_path)
 
 
 def camera_dir(output_path, file_path, tag):
@@ -137,7 +140,7 @@ def ingest(ingest_logs, file_list, root_output_dir):
         try:
             dir_size = round(shutil.disk_usage(volume).total / 1280000000)
         except PermissionError:
-            dir_size = "-"
+            dir_size = 0
         print(f'- {volume} ({str(dir_size)} gigabytes)')
 
         if dir_size > 128:
