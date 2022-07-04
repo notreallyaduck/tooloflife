@@ -167,7 +167,6 @@ def ingest(ingest_logs, file_list, root_output_dir):
                 ignored_volumes.append(entry)
 
                 for root, dirs, files in os.walk(entry):
-                    print(dirs)
                     for name in files:
                         if 'Onedrive' not in dirs:
                             file_path.append(os.path.join(root, name))
