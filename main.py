@@ -148,7 +148,7 @@ def ingest(ingest_logs, file_list, root_output_dir):
 
     print('\nSizes are approximate\n')
     sleep(1)
-    event_name = input('What event are these files from?\n> ')
+    event_name = input('What event are these files from?\n> ').strip
     output_path = root_output_dir + '/' + event_name
 
     if os.path.exists(output_path):
