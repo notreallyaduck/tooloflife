@@ -166,7 +166,7 @@ def ingest(ingest_logs, file_list, root_output_dir):
 
                 for root, dirs, files in os.walk(entry):
                     for name in files:
-                        if 'Onedrive' not in dirs:
+                        if 'OneDrive' not in dirs:
                             file_path.append(os.path.join(root, name))
 
         print(f'\n{len(file_path)} files to process\n')
@@ -338,7 +338,11 @@ def logs(stored_logs):
 
 
 def main():
-    print("\x1b[8;40;120t")
+    if os.name == 'posix':
+        print("\x1b[8;40;120t")
+    if os.name == 'nt':
+        os.system("mode 120 40")
+
     stored_logs = []
     path = ''
     stored_files = []
