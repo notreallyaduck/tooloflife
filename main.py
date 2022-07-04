@@ -384,7 +384,7 @@ def main():
     stored_logs = []
     path = ''
     stored_files = []
-    app_dir = '/Users/sudesh/Pictures/Multimedia'
+    app_dir = ''
 
     print(f'tooloflife v1.0.2 ({os.name})')
     sleep(0.5)
