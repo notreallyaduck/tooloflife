@@ -38,8 +38,6 @@ def has_hidden_attribute(filepath):
             return True
 
         elif bool(os.stat(filepath).st_file_attributes & stat.FILE_ATTRIBUTE_HIDDEN) is True:
-            print(filepath)
-            print(bool(os.stat(filepath).st_file_attributes & stat.FILE_ATTRIBUTE_HIDDEN))
             return True
 
     except AttributeError:
