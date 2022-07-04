@@ -19,7 +19,7 @@ def get_drives():
         bitmask = ctypes.windll.kernel32.GetLogicalDrives()
         for letter in string.ascii_uppercase:
             if bitmask & 1:
-                drives.append(letter + ":/")
+                drives.append(letter + ":\\")
             bitmask >>= 1
     elif os.name == "posix":
         for entry in os.listdir("/Volumes"):
@@ -167,8 +167,10 @@ def ingest(ingest_logs, file_list, root_output_dir):
                 ignored_volumes.append(entry)
 
                 for root, dirs, files in os.walk(entry):
+                    print(dirs)
                     for name in files:
-                        file_path.append(os.path.join(root, name))
+                        if 'Onedrive' not in dirs:
+                            file_path.append(os.path.join(root, name))
 
         print(f'\n{len(file_path)} files to process\n')
 
