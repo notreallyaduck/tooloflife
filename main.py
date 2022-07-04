@@ -10,6 +10,18 @@ import exifread
 import tkinter as tk
 from tkinter import filedialog
 import ctypes
+import configparser
+
+
+def write(config_file):
+    with open('config.conf', 'w') as configfile:
+        config_file.write(configfile)
+
+
+def read_config():
+    config = configparser.ConfigParser()
+    config.read('config.ini')
+    return config
 
 
 def get_drives():
@@ -370,25 +382,54 @@ def logs(stored_logs):
 
 
 def main():
-    if os.name == 'posix':
-        print("\x1b[8;40;120t")
-    if os.name == 'nt':
-        os.system("mode 120 40")
-
+    app_dir = "Not Set"
     stored_logs = []
     path = ''
     stored_files = []
-    app_dir = ''
+    config = configparser.ConfigParser()
+    config.read('./config.conf')
 
-    print(f'tooloflife v1.0.2 ({os.name})')
+    if os.path.exists('./config.conf'):
+        config.set('Program', 'This Session', f'{str(datetime.today())}')
+        write(config)
+    else:
+        config.add_section('Program')
+        config.set('Program', 'This Session', f'{str(datetime.today())}')
+        write(config)
+
+    try:
+        app_dir = config['Program']['Default Output']
+        stored_logs = config['Logs']
+    except KeyError:
+        pass
+
+    try:
+        if config['Program']['Name'] is None:
+            config.set('Program', 'Name', input("What is your name?").strip())
+            write(config)
+    except KeyError:
+        config.set('Program', 'Name', input("What is your name?").strip())
+        write(config)
+
+    if os.name == 'posix':
+        print("\x1b[8;40;120t")
+    if os.name == 'nt':
+        os.system("mode 120,40")
+
+    print('' + str(config['Program']['Name']) + ' - tooloflife v1.0.2 (' + os.name + ')\nOutput directory: ' + app_dir)
     sleep(0.5)
 
-    input('Press enter to select an output folder')
+    if not app_dir:
+        input('Press enter to select an output folder')
 
-    while not app_dir or app_dir == "/":
+    while not app_dir or app_dir == "/" or app_dir == "Not Set":
         window = tk.Tk()
         window.withdraw()
         app_dir = filedialog.askdirectory()
+        set_default = input("Would you like to save this as your default output directory?").strip().lower()
+        if set_default == "yes" or "y" or "yeah":
+            config.set('Program', 'Default Output', app_dir)
+            write(config)
 
     while True:
         print('\n[0] About'
