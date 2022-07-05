@@ -36,15 +36,14 @@ def get_drives():
 
 
 def has_hidden_attribute(filepath, file_name):
-    try:
-        if file_name.startswith('.'):
-            return True
 
-        elif bool(os.stat(filepath).st_file_attributes & stat.FILE_ATTRIBUTE_HIDDEN) is True:
-            return True
-
-    except AttributeError:
-        return False
+    if file_name.startswith('.'):
+        return True
+    else:
+        try:
+            return bool(os.stat(filepath).st_file_attributes & stat.FILE_ATTRIBUTE_HIDDEN)
+        except AttributeError:
+            return False
 
 
 def about():
