@@ -417,7 +417,7 @@ def main():
     if os.name == 'nt':
         os.system("mode 120,40")
 
-    print(str(config['Program']['Name']) + ' - tooloflife v1.0.2 (' + os.name + ')\nOutput directory: ' + app_dir)
+    print(str(config['Program']['Name']) + ' - tooloflife v1.1.0 (' + os.name + ')\nOutput directory: ' + app_dir)
     sleep(0.5)
 
     if app_dir == "" or None:
