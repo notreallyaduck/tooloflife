@@ -3,6 +3,7 @@ import os
 import shutil
 import stat
 import string
+import sys
 import webbrowser
 from datetime import datetime
 from time import sleep
@@ -11,6 +12,19 @@ import tkinter as tk
 from tkinter import filedialog
 import ctypes
 import configparser
+
+
+class Colour:
+    PURPLE = '\033[95m'
+    CYAN = '\033[96m'
+    DARKCYAN = '\033[36m'
+    BLUE = '\033[94m'
+    GREEN = '\033[92m'
+    YELLOW = '\033[93m'
+    RED = '\033[91m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+    END = '\033[0m'
 
 
 def write(config_file):
@@ -36,7 +50,6 @@ def get_drives():
 
 
 def has_hidden_attribute(filepath, file_name):
-
     if file_name.startswith('.'):
         return True
     else:
@@ -47,11 +60,13 @@ def has_hidden_attribute(filepath, file_name):
 
 
 def about():
-    print('About this tool'
+    print(f'\n{Colour.BOLD}{Colour.RED}About this tool\n{Colour.END}'
           '\nThis is a tool designed to help streamline the processes regarding file management within the PSHS '
           '\nMultimedia Team.'
           '\n\nSudesh Arunachalam sends his highest regards on the survival of anyone who uses this piece of software.')
-    input('\nPress Enter to go back to the main menu')
+    print('\033[?25l', end='')
+    input('\nPress "Enter" to go back to the main menu')
+    print('\033[?25h', end='')
 
 
 def duplicate(output_path, file_path, tag, duplicate_files, file_name):
@@ -126,7 +141,8 @@ def ingest(ingest_logs, file_list, root_output_dir, config_file):
     file_path = []
     processed_files = []
     ignored_volumes = []
-    print('\nIngest mode'
+    event_name = 0
+    print(f'\n{Colour.BOLD}{Colour.RED}Ingest Mode\n{Colour.END}'
           '\nCurrently attached volumes'
           '\nPlease wait as sizes are calculated. ')
 
@@ -147,236 +163,289 @@ def ingest(ingest_logs, file_list, root_output_dir, config_file):
 
     print('\nSizes are approximate\n')
     sleep(1)
-    event_name = input('What event are these files from?\n> ')
+
+    while not event_name:
+        event_name = input(f'What event are these files from?'
+                           f'\nType "Cancel" to abort ingest'
+                           f'\n{Colour.BOLD}{Colour.GREEN}> ')
+
+    if event_name.lower() == 'cancel' or event_name.lower() == 'abort':
+        cancel_ingest = True
+    else:
+        cancel_ingest = False
+
+    print(Colour.END)
     output_path = root_output_dir + '/' + event_name.strip()
 
-    if os.path.exists(output_path):
-        pass
-
-    else:
-        os.mkdir(output_path)
-
-    while True:
-        for entry in volumes:
-
-            if entry not in ignored_volumes:
-                ignored_volumes.append(entry)
-
-                for root, dirs, files in os.walk(entry):
-                    if 'C:' not in root:
-                        for name in files:
-                            if 'OneDrive' not in dirs:
-                                file_path.append(os.path.join(root, name))
-
-        print(f'\n{len(file_path)} files to process\n')
-
-        for item in file_path:
-            directory = item.split('/')
-            file_name = directory[-1]
-            file_type = file_is_media(item)
-            processed_files.append(item)
-            completion = round(len(processed_files) / len(file_path) * 100)
-
-            print('\033[?25l', end='')
-            print("\r", end="")
-            print(f'{completion} percent processed.', end='\r')
-
-            if has_hidden_attribute(item, file_name) is False:
-                if file_type == 'Image':
-                    file = open(item, 'rb')
-                    tags = exifread.process_file(file, stop_tag='Model')
-
-                    try:
-                        tag = str(tags['Image Model'])
-                        duplicate(output_path, item, tag, duplicate_files, file_name)
-                        camera_dir(output_path, item, tag)
-                        file_list.append(output_path + '/' + tag + '/' + os.path.basename(item))
-
-                    except KeyError:
-                        tag = 'Other'
-                        duplicate(output_path, item, tag, duplicate_files, file_name)
-                        missing_exif(item, output_path, no_exif, movies_list, file_type)
-                        file_list.append(output_path + '/' + tag + '/' + os.path.basename(item))
-
-                    except PermissionError:
-                        pass
-
-                    except shutil.Error:
-                        pass
-
-                elif file_type == 'Movie':
-                    duplicate(output_path, item, 'Videos', duplicate_files, file_name)
-                    missing_exif(item, output_path, no_exif, movies_list, file_type)
-                    file_list.append(output_path + '/Videos/' + os.path.basename(item))
-
-        print('\nIngested ' + str(len(file_list)) + ' files\n')
-        processed_files.clear()
-
-        if len(no_exif) > 0:
-            print('These files did not have camera information in their EXIF data: ')
-            for i in no_exif:
-                print(i)
-            print('They have been placed in a separate folder (Other)\n')
-
-        if len(duplicate_files) > 0:
-            print('These files had duplicate filenames: ')
-            for i in duplicate_files:
-                print(i)
-            print('They have been placed in a separate folder (Duplicates)\n')
-
-        if len(movies_list) > 0:
-            print('These files were video files: ')
-            for i in movies_list:
-                print(i)
-            print('They have been placed in a separate folder (Videos)\n')
-
-        print('\033[?25h', end='')
-
-        more_files = input('Are there more files to transfer? (Yes/No)'
-                           '\nIf you have another storage device, plug it in now.\n')
-
-        if more_files in ['No', 'no', 'N', 'n', 'NO', 'Nup', 'Nah', 'nup', 'nah']:
-            new_log = (f'[{str(datetime.today())}] {str(len(file_list))} files ingested by ' +
-                       config_file['Program']['Name'])
-            ingest_logs.append(new_log)
-
-            no_exif.clear()
-            movies_list.clear()
-            duplicate_files.clear()
-            ignored_volumes.clear()
-            processed_files.clear()
-            return output_path
-
-        if more_files in ['Yes', 'yes', 'Y', 'y', 'YES']:
-            print('Looking for new drives')
-            continue
+    if not cancel_ingest:
+        if os.path.exists(output_path):
+            pass
 
         else:
-            print('Type Yes or No')
+            os.mkdir(output_path)
+
+        while True:
+            for entry in volumes:
+
+                if entry not in ignored_volumes:
+                    ignored_volumes.append(entry)
+
+                    for root, dirs, files in os.walk(entry):
+                        if 'C:' not in root:
+                            for name in files:
+                                if 'OneDrive' not in dirs:
+                                    file_path.append(os.path.join(root, name))
+
+            print(f'\n{len(file_path)} files to process\n')
+
+            for item in file_path:
+                directory = item.split('/')
+                file_name = directory[-1]
+                file_type = file_is_media(item)
+                processed_files.append(item)
+                completion = round(len(processed_files) / len(file_path) * 100)
+
+                print('\033[?25l', end='')
+                print("\r", end="")
+                print(f'{completion} percent processed.', end='\r')
+
+                if has_hidden_attribute(item, file_name) is False:
+                    if file_type == 'Image':
+                        file = open(item, 'rb')
+                        tags = exifread.process_file(file, stop_tag='Model')
+
+                        try:
+                            tag = str(tags['Image Model'])
+                            duplicate(output_path, item, tag, duplicate_files, file_name)
+                            camera_dir(output_path, item, tag)
+                            file_list.append(output_path + '/' + tag + '/' + os.path.basename(item))
+
+                        except KeyError:
+                            tag = 'Other'
+                            duplicate(output_path, item, tag, duplicate_files, file_name)
+                            missing_exif(item, output_path, no_exif, movies_list, file_type)
+                            file_list.append(output_path + '/' + tag + '/' + os.path.basename(item))
+
+                        except PermissionError:
+                            pass
+
+                        except shutil.Error:
+                            pass
+
+                    elif file_type == 'Movie':
+                        duplicate(output_path, item, 'Videos', duplicate_files, file_name)
+                        missing_exif(item, output_path, no_exif, movies_list, file_type)
+                        file_list.append(output_path + '/Videos/' + os.path.basename(item))
+
+            print('\nIngested ' + str(len(file_list)) + ' files\n')
+            processed_files.clear()
+
+            if len(no_exif) > 0:
+                print('These files did not have camera information in their EXIF data: ')
+                for i in no_exif:
+                    print(i)
+                print('They have been placed in a separate folder (Other)\n')
+
+            if len(duplicate_files) > 0:
+                print('These files had duplicate filenames: ')
+                for i in duplicate_files:
+                    print(i)
+                print('They have been placed in a separate folder (Duplicates)\n')
+
+            if len(movies_list) > 0:
+                print('These files were video files: ')
+                for i in movies_list:
+                    print(i)
+                print('They have been placed in a separate folder (Videos)\n')
+
+            print('\033[?25h', end='')
+
+            more_files = input('Are there more files to transfer? (Yes/No)'
+                               f'\nIf you have another storage device, plug it in now.\n{Colour.BOLD}{Colour.GREEN}> ')
+            print(Colour.END)
+
+            if more_files in ['No', 'no', 'N', 'n', 'NO', 'Nup', 'Nah', 'nup', 'nah']:
+                new_log = (f'[{str(datetime.today())}] {str(len(file_list))} files ingested by ' +
+                           config_file['Program']['Name'])
+                ingest_logs.append(new_log)
+
+                no_exif.clear()
+                movies_list.clear()
+                duplicate_files.clear()
+                ignored_volumes.clear()
+                processed_files.clear()
+                return output_path
+
+            if more_files in ['Yes', 'yes', 'Y', 'y', 'YES']:
+                print('Looking for new drives')
+                continue
+
+            else:
+                print('Type Yes or No')
+    else:
+        print('\033[?25l', end='')
+        input(f'{Colour.BOLD}{Colour.RED}Ingest Cancelled{Colour.END}\nPress "Enter" to return to main menu')
+        print('\033[?25h', end='')
 
 
 def delegate(delegate_logs, output, config_file):
     available_files = []
     accounted_files = []
+    new_folder = ""
     files_out = output
+    cancel_delegate = False
     types_to_delegate = []
     image_mode = ('1', 'images', 'photos', 'pics')
     video_mode = ('2', 'videos', 'movies', 'vids')
     all_files = ('3', 'all', 'everything', 'all of it mate')
     mode = ""
 
+    print(f'{Colour.BOLD}{Colour.RED}Delegate Mode\n{Colour.END}')
+
     if files_out:
         print('Would you like to use the files you just ingested or do you want to select a different folder?'
-              '\nPress enter to use ingested files or type New to select a new folder')
-        new_folder = input().strip()
-        if new_folder == 'New' or new_folder == 'new' or new_folder == 'n' or new_folder == 'New Folder' or \
-                new_folder == 'new folder':
-            del output
+              '\nPress "Enter" to use ingested files, type "New" to select a new folder or type "Cancel" to abort')
+        new_folder = input(f'{Colour.BOLD}{Colour.GREEN}> ').strip().lower()
+        print(Colour.END)
 
-    while not files_out:
-        root = tk.Tk()
-        root.withdraw()
-        files_out = filedialog.askdirectory()
+    elif not files_out:
+        new_folder = input('Press "Enter" to select a folder to delegate from or type "Cancel" to abort'
+                           f'\n{Colour.BOLD}{Colour.GREEN}> ').strip().lower()
+        print(Colour.END)
 
-    while not mode:
-        selected_mode = input(f'What files would you like to delegate from {str(files_out)}?'
-                              f'\n[1] Images'
-                              f'\n[2] Videos'
-                              f'\n[3] All available files\n').strip().lower()
+    if new_folder == 'new' or new_folder == 'n' or new_folder == 'new folder':
+        files_out = ""
 
-        if selected_mode in image_mode:
-            types_to_delegate.append('Image')
-            mode = "Delegated Images"
-        elif selected_mode in video_mode:
-            types_to_delegate.append('Movie')
-            mode = "Delegated Videos"
-        elif selected_mode in all_files:
-            types_to_delegate.append('Movie')
-            types_to_delegate.append("Image")
-            mode = "Delegated Files"
-        else:
-            print("Select a valid option")
+    elif new_folder == 'cancel' or new_folder == 'abort':
+        cancel_delegate = True
 
-    for root, dirs, files in os.walk(files_out):
-        for name in files:
-            file_path = os.path.join(root, name)
-            file_directories = file_path.split("/")
-            if "Delegated Files" in file_directories:
-                pass
-            elif "Delegated Images" in file_directories:
-                pass
-            elif "Delegated Videos" in file_directories:
-                pass
-            elif "Duplicates" in file_directories:
-                pass
-            elif has_hidden_attribute(file_path, name):
-                pass
-            elif file_is_media(file_path) not in types_to_delegate:
-                pass
-            else:
-                available_files.append(file_path)
-
-    if len(available_files) < 1:
-        print("No files to ingest in " + files_out)
     else:
-        name_input = input('Write the names of each editor separated by a comma. \n'
-                           '(Steve, Matt Smith, Pikachu, Robbie, Anne)\n')
-        names = name_input.split(',')
+        print('Select a valid option\n')
+        cancel_delegate = True
 
-        try:
-            os.mkdir(files_out + '/' + mode + '/')
+    if not cancel_delegate:
+        print('\033[?25l', end='')
+        input('Press "Enter" to select a folder to delegate from')
+        print('\033[?25h', end='')
 
-        except FileExistsError:
-            pass
+        while not files_out:
+            root = tk.Tk()
+            root.withdraw()
+            files_out = filedialog.askdirectory()
 
-        except OSError:
-            print('Delegations folder is read only, please check permissions')
+        while not mode:
+            selected_mode = input(f'What files would you like to delegate from {str(files_out)}?'
+                                  f'\n[1] Images'
+                                  f'\n[2] Videos'
+                                  f'\n[3] All available files\n{Colour.BOLD}{Colour.GREEN}> ').strip().lower()
+            print(Colour.END)
 
-        files_len = len(available_files)
+            if selected_mode in image_mode:
+                types_to_delegate.append('Image')
+                mode = "Delegated Images"
+            elif selected_mode in video_mode:
+                types_to_delegate.append('Movie')
+                mode = "Delegated Videos"
+            elif selected_mode in all_files:
+                types_to_delegate.append('Movie')
+                types_to_delegate.append("Image")
+                mode = "Delegated Files"
+            else:
+                print("Select a valid option")
 
-        for index, name in enumerate(names):
-            name = name.strip()
-            each_user = math.ceil(files_len / len(names))
-            my_files = []
-            files_before = each_user * (index - 1)
-            this_editor = []
-
-            for x in range(each_user):
-                if available_files[files_before + x] not in accounted_files:
-                    my_files.append(available_files[files_before + x])
-                    accounted_files.append(available_files[files_before + x])
+        for root, dirs, files in os.walk(files_out):
+            for name in files:
+                file_path = os.path.join(root, name)
+                file_directories = file_path.split("/")
+                if "Delegated Files" in file_directories:
+                    pass
+                elif "Delegated Images" in file_directories:
+                    pass
+                elif "Delegated Videos" in file_directories:
+                    pass
+                elif "Duplicates" in file_directories:
+                    pass
+                elif has_hidden_attribute(file_path, name):
+                    pass
+                elif file_is_media(file_path) not in types_to_delegate:
+                    pass
                 else:
-                    pass
+                    available_files.append(file_path)
 
-            path = files_out + "/" + mode + "/" + name + "/"
+        if len(available_files) < 1:
+            print("No files to ingest in " + files_out)
+        else:
+            name_input = input('Write the names of each editor separated by a comma. \n'
+                               f'(Steve, Matt Smith, Pikachu, Robbie, Anne)\n{Colour.BOLD}{Colour.GREEN}> ')
+            print(Colour.END)
+            names = name_input.split(',')
 
-            if len(my_files) > 0:
-                try:
-                    os.mkdir(path)
+            try:
+                os.mkdir(files_out + '/' + mode + '/')
 
-                except FileExistsError:
-                    pass
+            except FileExistsError:
+                pass
 
-                except FileNotFoundError:
-                    print('Folder does not exist')
-                    return
+            except OSError:
+                print('Delegations folder is read only, please check permissions')
 
-                for file in my_files:
-                    print(file)
-                    shutil.copy(file, path)
-                    this_editor.append(file)
+            files_len = len(available_files)
 
-                print(f'{name} was delegated {len(this_editor)} files in folder {path}\n')
-        new_log = (f'[{str(datetime.today())}] {mode} to {len(names)} people by ' + config_file['Program']['Name'])
-        delegate_logs.append(new_log)
-        types_to_delegate.clear()
+            for index, name in enumerate(names):
+                name = name.strip()
+                each_user = math.ceil(files_len / len(names))
+                my_files = []
+                files_before = each_user * (index - 1)
+                this_editor = []
+
+                for x in range(each_user):
+                    if available_files[files_before + x] not in accounted_files:
+                        my_files.append(available_files[files_before + x])
+                        accounted_files.append(available_files[files_before + x])
+                    else:
+                        pass
+
+                path = files_out + "/" + mode + "/" + name + "/"
+
+                if len(my_files) > 0:
+                    try:
+                        os.mkdir(path)
+
+                    except FileExistsError:
+                        pass
+
+                    except FileNotFoundError:
+                        print('Folder does not exist')
+                        return
+
+                    for file in my_files:
+                        print(file)
+                        shutil.copy(file, path)
+                        this_editor.append(file)
+
+                    print(f'{name} was delegated {len(this_editor)} files in folder {path}\n')
+            new_log = (f'[{str(datetime.today())}] {mode} to {len(names)} people by ' + config_file['Program']['Name'])
+            delegate_logs.append(new_log)
+            types_to_delegate.clear()
+
+            print('\033[?25l', end='')
+            input(f'{Colour.BOLD}{Colour.GREEN}Delegate Complete{Colour.END}\nPress "Enter" to return to main menu')
+            print('\033[?25h', end='')
+    else:
+        print('\033[?25l', end='')
+        input(f'{Colour.BOLD}{Colour.RED}Delegate Cancelled{Colour.END}\nPress "Enter" to return to main menu')
+        print('\033[?25h', end='')
 
 
 def logs(stored_logs):
-    print('Operations completed this session:')
+    print(f'{Colour.BOLD}{Colour.RED}Operations Completed\n{Colour.END}')
     for i in range(0, len(stored_logs)):
         print(stored_logs[i])
-    input('\nPress Enter to go back to the main menu')
+
+    print('\033[?25l', end='')
+    input('\nPress "Enter" to go back to the main menu')
+    print('\033[?25h', end='')
+
     return 0
 
 
@@ -387,12 +456,19 @@ def main():
     stored_files = []
     config = configparser.ConfigParser()
 
-    if not os.path.exists('./config.conf'):
+    if sys.executable.endswith('tooloflife'):
+        cur_dir = sys.executable[:-10]
+        os.chdir(cur_dir)
+    elif sys.executable.endswith('tooloflife.exe'):
+        cur_dir = sys.executable[:-14]
+        os.chdir(cur_dir)
+
+    if not os.path.exists(f'{os.getcwd()}/config.conf'):
         write(config)
         config.add_section('Program')
         stored_logs.append(f'[{str(datetime.today())}] New session created')
     else:
-        config.read('./config.conf')
+        config.read(f'{os.getcwd()}/config.conf')
 
         try:
             config['Program']
@@ -406,27 +482,34 @@ def main():
         except KeyError:
             pass
 
-    try:
-        if config['Program']['Name'] is None:
-            config.set('Program', 'Name', input("What is your name?\n> ").strip())
-    except KeyError:
-        config.set('Program', 'Name', input("What is your name?\n> ").strip())
-    write(config)
-
     if os.name == 'posix':
+        os.system('clear')
         print("\x1b[8;40;120t")
-    if os.name == 'nt':
+    elif os.name == 'nt':
+        os.system('cls')
         os.system("mode 120,40")
 
+    try:
+        if config['Program']['Name'] is None:
+            config.set('Program', 'Name', input(f"What is your name?\n{Colour.BOLD}{Colour.GREEN}> ").strip())
+            print(Colour.END)
+    except KeyError:
+        config.set('Program', 'Name', input(f"What is your name?\n{Colour.BOLD}{Colour.GREEN}> ").strip())
+        print(Colour.END)
+    write(config)
 
     if app_dir == "Not Set":
-        input('Press enter to select an output folder')
+        print('\033[?25l', end='')
+        input('Press "Enter" to select an output folder')
+        print('\033[?25h', end='')
 
     while not app_dir or app_dir == "/" or app_dir == "Not Set":
         window = tk.Tk()
         window.withdraw()
         app_dir = filedialog.askdirectory()
-        set_default = input("Would you like to save this as your default output directory?\n> ").strip().lower()
+        set_default = input("Would you like to save this as your default output directory?"
+                            f"\n{Colour.BOLD}{Colour.GREEN}> ").strip().lower()
+        print(Colour.END)
         if set_default == "yes" or "y" or "yeah":
             config.set('Program', 'Default Output', app_dir)
 
@@ -434,20 +517,45 @@ def main():
 
     if os.name == 'posix':
         os.system('clear')
+        print("\x1b[8;39;120t")
     elif os.name == 'nt':
         os.system('cls')
+        os.system("mode 120,39")
 
-    print(str(config['Program']['Name']) + ' - tooloflife v1.1.0 (' + os.name + ')\nOutput directory: ' + app_dir)
     sleep(0.5)
 
     while True:
+        if os.name == 'posix':
+            os.system('clear')
+        elif os.name == 'nt':
+            os.system('cls')
+
+        print('\033[?25l', end='')
+
+        print(f'{Colour.BOLD}{Colour.RED}\nMain Menu\n{Colour.END}')
+        sleep(0.1)
+        print(str(config['Program']['Name']) + ' - tooloflife v1.2.0 (' + os.name + ')')
+        sleep(0.1)
+        print('Output directory: ' + app_dir)
+        sleep(0.1)
+        print("Program directory: " + os.getcwd())
+        sleep(0.7)
+
+        print('\033[?25h', end='')
+
         print('\n[0] About'
               '\n[1] Ingest'
               '\n[2] Delegate'
               '\n[3] Logs'
               '\n[4] Open Folder'
               '\n[5] Quit')
-        current_menu = input('> ').strip().lower()
+        current_menu = input(f'{Colour.BOLD}{Colour.GREEN}> ').strip().lower()
+        print(Colour.END)
+
+        if os.name == 'posix':
+            os.system('clear')
+        elif os.name == 'nt':
+            os.system('cls')
 
         if current_menu == '0' or current_menu == 'about':
             about()
