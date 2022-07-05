@@ -18,12 +18,6 @@ def write(config_file):
         config_file.write(configfile)
 
 
-def read_config():
-    config = configparser.ConfigParser()
-    config.read('config.ini')
-    return config
-
-
 def get_drives():
     drives = []
 
@@ -41,9 +35,7 @@ def get_drives():
     return drives
 
 
-def has_hidden_attribute(filepath):
-    directory = filepath.split('/')
-    file_name = directory[-1]
+def has_hidden_attribute(filepath, file_name):
     try:
         if file_name.startswith('.'):
             return True
@@ -63,10 +55,7 @@ def about():
     input('\nPress Enter to go back to the main menu')
 
 
-def duplicate(output_path, file_path, tag, duplicate_files):
-    directory = file_path.split('/')
-    file_name = directory[-1]
-
+def duplicate(output_path, file_path, tag, duplicate_files, file_name):
     if os.path.exists(output_path + '/' + tag + '/' + file_name):
         duplicate_files.append(file_path)
 
@@ -115,24 +104,20 @@ def camera_dir(output_path, file_path, tag):
 
 
 def file_is_media(file_path):
-    directory = file_path.split('/')
-    file_name = directory[-1]
-    file_suffix = file_name.split('.')
-    file_type = file_suffix[-1].lower()
-
-    if file_type == 'jpg' or file_type == 'nef' or file_type == 'cr2' or file_type == 'dng' \
-            or file_type == 'jpg' or file_type == 'nef' or file_type == 'cr2' or file_type == 'dng' \
-            or file_type == 'orf':
+    if file_path.endswith('.jpg') or file_path.endswith('nef') or file_path.endswith('cr2') \
+            or file_path.endswith('dng') or file_path.endswith('nef') or file_path.endswith('cr2') \
+            or file_path.endswith('dng') or file_path.endswith('orf'):
         return 'Image'
 
-    elif file_type == 'avchd' or file_type == 'avi' or file_type == 'mp4' or file_type == 'mov':
+    elif file_path.endswith('avchd') or file_path.endswith('avi') or file_path.endswith('mp4') \
+            or file_path.endswith('mov'):
         return 'Movie'
 
     else:
         return False
 
 
-def ingest(ingest_logs, file_list, root_output_dir):
+def ingest(ingest_logs, file_list, root_output_dir, config_file):
     no_exif = []
     movies_list = []
     duplicate_files = []
@@ -183,6 +168,8 @@ def ingest(ingest_logs, file_list, root_output_dir):
         print(f'\n{len(file_path)} files to process\n')
 
         for item in file_path:
+            directory = item.split('/')
+            file_name = directory[-1]
             file_type = file_is_media(item)
             processed_files.append(item)
             completion = round(len(processed_files) / len(file_path) * 100)
@@ -191,19 +178,19 @@ def ingest(ingest_logs, file_list, root_output_dir):
             print("\r", end="")
             print(f'{completion} percent processed.', end='\r')
 
-            if has_hidden_attribute(item) is False and file_type == 'Image':
+            if has_hidden_attribute(item, file_name) is False and file_type == 'Image':
                 file = open(item, 'rb')
                 tags = exifread.process_file(file, stop_tag='Model')
 
                 try:
                     tag = str(tags['Image Model'])
-                    duplicate(output_path, item, tag, duplicate_files)
+                    duplicate(output_path, item, tag, duplicate_files, file_name)
                     camera_dir(output_path, item, tag)
                     file_list.append(output_path + '/' + tag + '/' + os.path.basename(item))
 
                 except KeyError:
                     tag = 'Other'
-                    duplicate(output_path, item, tag, duplicate_files)
+                    duplicate(output_path, item, tag, duplicate_files, file_name)
                     missing_exif(item, output_path, no_exif, movies_list, file_type)
                     file_list.append(output_path + '/' + tag + '/' + os.path.basename(item))
 
@@ -214,7 +201,7 @@ def ingest(ingest_logs, file_list, root_output_dir):
                     pass
 
             elif file_type == 'Movie':
-                duplicate(output_path, item, 'Videos', duplicate_files)
+                duplicate(output_path, item, 'Videos', duplicate_files, file_name)
                 missing_exif(item, output_path, no_exif, movies_list, file_type)
                 file_list.append(output_path + '/Videos/' + os.path.basename(item))
 
@@ -245,7 +232,10 @@ def ingest(ingest_logs, file_list, root_output_dir):
                            '\nIf you have another storage device, plug it in now.\n')
 
         if more_files in ['No', 'no', 'N', 'n', 'NO', 'Nup', 'Nah', 'nup', 'nah']:
-            ingest_logs.append(f'[{str(datetime.today())}]  + {str(len(file_list))} files ingested')
+            new_log = (f'[{str(datetime.today())}] {str(len(file_list))} files ingested by ' +
+                       config_file['Program']['Name'])
+            ingest_logs.append(new_log)
+
             no_exif.clear()
             movies_list.clear()
             duplicate_files.clear()
@@ -261,7 +251,7 @@ def ingest(ingest_logs, file_list, root_output_dir):
             print('Type Yes or No')
 
 
-def delegate(delegate_logs, output):
+def delegate(delegate_logs, output, config_file):
     available_files = []
     copied_files = []
     files_out = output
@@ -312,7 +302,7 @@ def delegate(delegate_logs, output):
                 pass
             elif "Duplicates" in file_directories:
                 pass
-            elif has_hidden_attribute(file_path):
+            elif has_hidden_attribute(file_path, name):
                 pass
             elif file_is_media(file_path) not in types_to_delegate:
                 pass
@@ -369,7 +359,9 @@ def delegate(delegate_logs, output):
                     pass
 
             print(f'{name} was delegated {len(this_editor)} files in folder {path}\n')
-        delegate_logs.append(f'[{str(datetime.today())}] Files delegated to {len(names)} people')
+        new_log = (f'[{str(datetime.today())}] Files delegated to {len(names)} people by ' +
+                   config_file['Program']['Name'])
+        delegate_logs.append(new_log)
         types_to_delegate.clear()
 
 
@@ -383,19 +375,15 @@ def logs(stored_logs):
 
 def main():
     app_dir = "Not Set"
-    stored_logs = []
+    logs_to_save = ""
     path = ''
     stored_files = []
     config = configparser.ConfigParser()
     config.read('./config.conf')
 
-    if os.path.exists('./config.conf'):
-        config.set('Program', 'This Session', f'{str(datetime.today())}')
-        write(config)
-    else:
-        config.add_section('Program')
-        config.set('Program', 'This Session', f'{str(datetime.today())}')
-        write(config)
+    config.set('Program', 'This Session', str(datetime.today()))
+    stored_logs = config['Program']['Logs'].split('/')
+    stored_logs.append(f'[{str(datetime.today())}] New session created')
 
     try:
         app_dir = config['Program']['Default Output']
@@ -406,17 +394,15 @@ def main():
     try:
         if config['Program']['Name'] is None:
             config.set('Program', 'Name', input("What is your name?").strip())
-            write(config)
     except KeyError:
         config.set('Program', 'Name', input("What is your name?").strip())
-        write(config)
 
     if os.name == 'posix':
         print("\x1b[8;40;120t")
     if os.name == 'nt':
         os.system("mode 120,40")
 
-    print('' + str(config['Program']['Name']) + ' - tooloflife v1.0.2 (' + os.name + ')\nOutput directory: ' + app_dir)
+    print(str(config['Program']['Name']) + ' - tooloflife v1.0.2 (' + os.name + ')\nOutput directory: ' + app_dir)
     sleep(0.5)
 
     if not app_dir:
@@ -429,7 +415,8 @@ def main():
         set_default = input("Would you like to save this as your default output directory?").strip().lower()
         if set_default == "yes" or "y" or "yeah":
             config.set('Program', 'Default Output', app_dir)
-            write(config)
+
+    write(config)
 
     while True:
         print('\n[0] About'
@@ -443,9 +430,9 @@ def main():
         if current_menu == '0' or current_menu == 'about':
             about()
         elif current_menu == '1' or current_menu == 'ingest':
-            path = ingest(stored_logs, stored_files, app_dir)
+            path = ingest(stored_logs, stored_files, app_dir, config)
         elif current_menu == '2' or current_menu == 'delegate':
-            delegate(stored_logs, path)
+            delegate(stored_logs, path, config)
         elif current_menu == '3' or current_menu == 'logs':
             logs(stored_logs)
         elif current_menu == '4' or current_menu == 'open folder':
@@ -454,6 +441,11 @@ def main():
             break
         else:
             print('Select a valid option')
+
+        for log in stored_logs:
+            logs_to_save = str(logs_to_save + '/' + log)
+        config.set('Program', 'Logs', logs_to_save)
+        write(config)
 
 
 if __name__ == '__main__':
