@@ -104,13 +104,16 @@ def camera_dir(output_path, file_path, tag):
 
 
 def file_is_media(file_path):
-    if file_path.endswith('.jpg') or file_path.endswith('nef') or file_path.endswith('cr2') \
-            or file_path.endswith('dng') or file_path.endswith('nef') or file_path.endswith('cr2') \
-            or file_path.endswith('dng') or file_path.endswith('orf'):
+    image_extensions = ('3fr', 'ari', 'arw', 'bay', 'braw', 'crw', 'cr2', 'cr3', 'cap', 'data', 'dcs', 'dcr', 'dng',
+                        'drf', 'eip', 'erf', 'fff', 'gpr', 'iiq', 'k25', 'kdc', 'mdc', 'mdc', 'mef', 'mos', 'mrw',
+                        'nef', 'nrw', 'obm', 'orf', 'pef', 'ptx', 'pxn', 'raf', 'raw', 'rwl', 'rw2', 'rwz', 'sr2',
+                        'srf', 'srw', 'tif', 'x3f')
+    movie_extensions = ('avchd', 'avi', 'mov', 'mp4')
+
+    if file_path.lower().endswith(image_extensions):
         return 'Image'
 
-    elif file_path.endswith('avchd') or file_path.endswith('avi') or file_path.endswith('mp4') \
-            or file_path.endswith('mov'):
+    if file_path.lower().endswith(movie_extensions):
         return 'Movie'
 
     else:
@@ -253,10 +256,13 @@ def ingest(ingest_logs, file_list, root_output_dir, config_file):
 
 def delegate(delegate_logs, output, config_file):
     available_files = []
-    copied_files = []
+    accounted_files = []
     files_out = output
     types_to_delegate = []
-    mode = "Delegated Files"
+    image_mode = ('1', 'images', 'photos', 'pics')
+    video_mode = ('2', 'videos', 'movies', 'vids')
+    all_files = ('3', 'all', 'everything', 'all of it mate')
+    mode = ""
 
     if files_out:
         print('Would you like to use the files you just ingested or do you want to select a different folder?'
@@ -271,24 +277,24 @@ def delegate(delegate_logs, output, config_file):
         root.withdraw()
         files_out = filedialog.askdirectory()
 
-    selected_mode = input(f'What files would you like to delegate from {str(files_out)}?'
-                          f'\n[1] Images'
-                          f'\n[2] Videos'
-                          f'\n[3] All available files\n').strip().lower()
+    while not mode:
+        selected_mode = input(f'What files would you like to delegate from {str(files_out)}?'
+                              f'\n[1] Images'
+                              f'\n[2] Videos'
+                              f'\n[3] All available files\n').strip().lower()
 
-    if selected_mode == '1' or selected_mode == 'images' or selected_mode == 'photos' or selected_mode == 'pics':
-        types_to_delegate.append('Image')
-        mode = "Delegated Images"
-    elif selected_mode == '2' or selected_mode == 'videos' or selected_mode == 'movies' or selected_mode == 'vids':
-        types_to_delegate.append('Movie')
-        mode = "Delegated Videos"
-    elif selected_mode == '3' or selected_mode == 'all' or selected_mode == 'everything' or selected_mode == \
-            'all of it mate':
-        types_to_delegate.append('Movie')
-        types_to_delegate.append("Image")
-    else:
-        types_to_delegate.append('Movie')
-        types_to_delegate.append("Image")
+        if selected_mode in image_mode:
+            types_to_delegate.append('Image')
+            mode = "Delegated Images"
+        elif selected_mode in video_mode:
+            types_to_delegate.append('Movie')
+            mode = "Delegated Videos"
+        elif selected_mode in all_files:
+            types_to_delegate.append('Movie')
+            types_to_delegate.append("Image")
+            mode = "Delegated Files"
+        else:
+            print("Select a valid option")
 
     for root, dirs, files in os.walk(files_out):
         for name in files:
@@ -335,32 +341,32 @@ def delegate(delegate_logs, output, config_file):
             this_editor = []
 
             for x in range(each_user):
-                my_files.append(available_files[files_before + x])
-
-            path = files_out + "/" + mode + "/" + name + "/"
-
-            try:
-                os.mkdir(path)
-
-            except FileExistsError:
-                pass
-
-            except FileNotFoundError:
-                print('Folder does not exist')
-                return
-
-            for file in my_files:
-                if file not in copied_files:
-                    print(file)
-                    shutil.copy(file, path)
-                    this_editor.append(file)
-                    copied_files.append(file)
+                if available_files[files_before + x] not in accounted_files:
+                    my_files.append(available_files[files_before + x])
+                    accounted_files.append(available_files[files_before + x])
                 else:
                     pass
 
-            print(f'{name} was delegated {len(this_editor)} files in folder {path}\n')
-        new_log = (f'[{str(datetime.today())}] Files delegated to {len(names)} people by ' +
-                   config_file['Program']['Name'])
+            path = files_out + "/" + mode + "/" + name + "/"
+
+            if len(my_files) > 0:
+                try:
+                    os.mkdir(path)
+
+                except FileExistsError:
+                    pass
+
+                except FileNotFoundError:
+                    print('Folder does not exist')
+                    return
+
+                for file in my_files:
+                    print(file)
+                    shutil.copy(file, path)
+                    this_editor.append(file)
+
+                print(f'{name} was delegated {len(this_editor)} files in folder {path}\n')
+        new_log = (f'[{str(datetime.today())}] {mode} to {len(names)} people by ' + config_file['Program']['Name'])
         delegate_logs.append(new_log)
         types_to_delegate.clear()
 
@@ -375,27 +381,36 @@ def logs(stored_logs):
 
 def main():
     app_dir = "Not Set"
-    logs_to_save = ""
     path = ''
+    stored_logs = []
     stored_files = []
     config = configparser.ConfigParser()
-    config.read('./config.conf')
 
-    config.set('Program', 'This Session', str(datetime.today()))
-    stored_logs = config['Program']['Logs'].split('/')
-    stored_logs.append(f'[{str(datetime.today())}] New session created')
+    if not os.path.exists('./config.conf'):
+        write(config)
+        config.add_section('Program')
+        stored_logs.append(f'[{str(datetime.today())}] New session created')
+    else:
+        config.read('./config.conf')
 
-    try:
-        app_dir = config['Program']['Default Output']
-        stored_logs = config['Logs']
-    except KeyError:
-        pass
+        try:
+            config['Program']
+        except KeyError:
+            config.add_section('Program')
+
+        stored_logs.append(f'[{str(datetime.today())}] New session created')
+        try:
+            app_dir = config['Program']['Default Output']
+            stored_logs = config['Program']['Logs'].split('/')
+        except KeyError:
+            pass
 
     try:
         if config['Program']['Name'] is None:
-            config.set('Program', 'Name', input("What is your name?").strip())
+            config.set('Program', 'Name', input("What is your name?\n> ").strip())
     except KeyError:
-        config.set('Program', 'Name', input("What is your name?").strip())
+        config.set('Program', 'Name', input("What is your name?\n> ").strip())
+    write(config)
 
     if os.name == 'posix':
         print("\x1b[8;40;120t")
@@ -405,14 +420,14 @@ def main():
     print(str(config['Program']['Name']) + ' - tooloflife v1.0.2 (' + os.name + ')\nOutput directory: ' + app_dir)
     sleep(0.5)
 
-    if not app_dir:
+    if app_dir == "" or None:
         input('Press enter to select an output folder')
 
     while not app_dir or app_dir == "/" or app_dir == "Not Set":
         window = tk.Tk()
         window.withdraw()
         app_dir = filedialog.askdirectory()
-        set_default = input("Would you like to save this as your default output directory?").strip().lower()
+        set_default = input("Would you like to save this as your default output directory?\n> ").strip().lower()
         if set_default == "yes" or "y" or "yeah":
             config.set('Program', 'Default Output', app_dir)
 
@@ -442,8 +457,12 @@ def main():
         else:
             print('Select a valid option')
 
+        logs_to_save = ""
         for log in stored_logs:
-            logs_to_save = str(logs_to_save + '/' + log)
+            if len(logs_to_save) == 0:
+                logs_to_save = log
+            else:
+                logs_to_save = logs_to_save + '/' + log
         config.set('Program', 'Logs', logs_to_save)
         write(config)
 
