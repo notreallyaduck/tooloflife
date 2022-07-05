@@ -107,7 +107,7 @@ def file_is_media(file_path):
     image_extensions = ('3fr', 'ari', 'arw', 'bay', 'braw', 'crw', 'cr2', 'cr3', 'cap', 'data', 'dcs', 'dcr', 'dng',
                         'drf', 'eip', 'erf', 'fff', 'gpr', 'iiq', 'k25', 'kdc', 'mdc', 'mdc', 'mef', 'mos', 'mrw',
                         'nef', 'nrw', 'obm', 'orf', 'pef', 'ptx', 'pxn', 'raf', 'raw', 'rwl', 'rw2', 'rwz', 'sr2',
-                        'srf', 'srw', 'tif', 'x3f')
+                        'srf', 'srw', 'tif', 'x3f', 'jpg', 'png', 'tif')
     movie_extensions = ('avchd', 'avi', 'mov', 'mp4')
 
     if file_path.lower().endswith(image_extensions):
@@ -181,32 +181,33 @@ def ingest(ingest_logs, file_list, root_output_dir, config_file):
             print("\r", end="")
             print(f'{completion} percent processed.', end='\r')
 
-            if has_hidden_attribute(item, file_name) is False and file_type == 'Image':
-                file = open(item, 'rb')
-                tags = exifread.process_file(file, stop_tag='Model')
+            if has_hidden_attribute(item, file_name) is False:
+                if file_type == 'Image':
+                    file = open(item, 'rb')
+                    tags = exifread.process_file(file, stop_tag='Model')
 
-                try:
-                    tag = str(tags['Image Model'])
-                    duplicate(output_path, item, tag, duplicate_files, file_name)
-                    camera_dir(output_path, item, tag)
-                    file_list.append(output_path + '/' + tag + '/' + os.path.basename(item))
+                    try:
+                        tag = str(tags['Image Model'])
+                        duplicate(output_path, item, tag, duplicate_files, file_name)
+                        camera_dir(output_path, item, tag)
+                        file_list.append(output_path + '/' + tag + '/' + os.path.basename(item))
 
-                except KeyError:
-                    tag = 'Other'
-                    duplicate(output_path, item, tag, duplicate_files, file_name)
+                    except KeyError:
+                        tag = 'Other'
+                        duplicate(output_path, item, tag, duplicate_files, file_name)
+                        missing_exif(item, output_path, no_exif, movies_list, file_type)
+                        file_list.append(output_path + '/' + tag + '/' + os.path.basename(item))
+
+                    except PermissionError:
+                        pass
+
+                    except shutil.Error:
+                        pass
+
+                elif file_type == 'Movie':
+                    duplicate(output_path, item, 'Videos', duplicate_files, file_name)
                     missing_exif(item, output_path, no_exif, movies_list, file_type)
-                    file_list.append(output_path + '/' + tag + '/' + os.path.basename(item))
-
-                except PermissionError:
-                    pass
-
-                except shutil.Error:
-                    pass
-
-            elif file_type == 'Movie':
-                duplicate(output_path, item, 'Videos', duplicate_files, file_name)
-                missing_exif(item, output_path, no_exif, movies_list, file_type)
-                file_list.append(output_path + '/Videos/' + os.path.basename(item))
+                    file_list.append(output_path + '/Videos/' + os.path.basename(item))
 
         print('\nIngested ' + str(len(file_list)) + ' files\n')
         processed_files.clear()
