@@ -319,15 +319,14 @@ def delegate(delegate_logs, output, config_file):
     elif new_folder == 'cancel' or new_folder == 'abort':
         cancel_delegate = True
 
+    elif not new_folder:
+        pass
+
     else:
         print('Select a valid option\n')
         cancel_delegate = True
 
     if not cancel_delegate:
-        print('\033[?25l', end='')
-        input('Press "Enter" to select a folder to delegate from')
-        print('\033[?25h', end='')
-
         while not files_out:
             root = tk.Tk()
             root.withdraw()
@@ -466,7 +465,6 @@ def main():
     if not os.path.exists(f'{os.getcwd()}/config.conf'):
         write(config)
         config.add_section('Program')
-        stored_logs.append(f'[{str(datetime.today())}] New session created')
     else:
         config.read(f'{os.getcwd()}/config.conf')
 
@@ -475,12 +473,13 @@ def main():
         except KeyError:
             config.add_section('Program')
 
-        stored_logs.append(f'[{str(datetime.today())}] New session created')
         try:
             app_dir = config['Program']['Default Output']
             stored_logs = config['Program']['Logs'].split('/')
         except KeyError:
             pass
+
+    stored_logs.append(f'[{str(datetime.today())}] New session created')
 
     if os.name == 'posix':
         os.system('clear')
