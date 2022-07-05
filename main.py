@@ -418,10 +418,8 @@ def main():
     if os.name == 'nt':
         os.system("mode 120,40")
 
-    print(str(config['Program']['Name']) + ' - tooloflife v1.1.0 (' + os.name + ')\nOutput directory: ' + app_dir)
-    sleep(0.5)
 
-    if app_dir == "" or None:
+    if app_dir == "Not Set":
         input('Press enter to select an output folder')
 
     while not app_dir or app_dir == "/" or app_dir == "Not Set":
@@ -433,6 +431,14 @@ def main():
             config.set('Program', 'Default Output', app_dir)
 
     write(config)
+
+    if os.name == 'posix':
+        os.system('clear')
+    elif os.name == 'nt':
+        os.system('cls')
+
+    print(str(config['Program']['Name']) + ' - tooloflife v1.1.0 (' + os.name + ')\nOutput directory: ' + app_dir)
+    sleep(0.5)
 
     while True:
         print('\n[0] About'
