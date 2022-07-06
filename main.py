@@ -493,7 +493,13 @@ def main():
             config.add_section('Program')
 
         try:
-            app_dir = config['Program']['Default Output']
+            if os.name == 'nt':
+                output_directory = config['Program']['Default Output'].split('/')
+                for output in output_directory:
+                    app_dir = app_dir + '/' + output
+            else:
+                app_dir = config['Program']['Default Output']
+
             stored_logs = config['Program']['Logs'].split('/')
         except KeyError:
             pass
