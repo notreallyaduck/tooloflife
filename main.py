@@ -10,7 +10,6 @@ from time import sleep
 import exifread
 import tkinter as tk
 from tkinter import filedialog
-# from tkinter import messagebox
 import ctypes
 import configparser
 
@@ -26,6 +25,17 @@ class Colour:
     BOLD = '\033[1m'
     UNDERLINE = '\033[4m'
     END = '\033[0m'
+
+
+def notify(title, text):
+    if os.name == 'posix':
+        os.system("""
+                  osascript -e 'display notification "{}" with title "{}"'
+                  """.format(text, title))
+    elif os.name == 'nt':
+        os.system('echo msgbox "the message that you want" > "%temp%\popup.vbs" wscript.exe "%temp%\popup.vbs"')
+    else:
+        pass
 
 
 def write(config_file):
@@ -268,7 +278,8 @@ def ingest(ingest_logs, file_list, root_output_dir, config_file):
 
             print('\033[?25h', end='')
 
-            # messagebox.showinfo("Ingest complete", f"Finished ingesting {len(file_list)} files")
+            notify("Ingest Complete", f"Ingested {len(file_list)} files to {output_path}")
+            sleep(2)
 
             more_files = input(' Are there more files to transfer? (Yes/No)'
                                f'\n If you have another storage device, plug it in now.'
@@ -440,7 +451,8 @@ def delegate(delegate_logs, output, config_file):
 
                     print(f' {name} was delegated {len(this_editor)} files in folder {path}\n')
 
-            # messagebox.showinfo("Delegation complete", f"Finished delegating to {len(names)} people")
+            notify("Delegation Complete", f"{mode} to {len(names)} people")
+            sleep(2)
 
             new_log = (f'[{str(datetime.today())}] {mode} to {len(names)} people by ' + config_file['Program']['Name'])
             delegate_logs.append(new_log)
