@@ -200,8 +200,9 @@ def ingest(ingest_logs, file_list, root_output_dir, config_file):
 
                     for root, dirs, files in os.walk(entry):
                         for name in files:
-                            if 'OneDrive' not in dirs:
-                                file_path.append(os.path.join(root, name))
+                            if 'C:' not in root:
+                                if 'OneDrive' not in dirs:
+                                    file_path.append(os.path.join(root, name))
 
             print(f'\n {len(file_path)} files to process\n')
 
