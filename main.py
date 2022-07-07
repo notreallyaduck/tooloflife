@@ -129,12 +129,12 @@ def camera_dir(output_path, file_path, tag):
 
 
 def file_is_media(file_path, only_raw):
-    raw_extensions = ('3fr', 'ari', 'arw', 'bay', 'braw', 'crw', 'cr2', 'cr3', 'cap', 'data', 'dcs', 'dcr', 'dng',
-                      'drf', 'eip', 'erf', 'fff', 'gpr', 'iiq', 'k25', 'kdc', 'mdc', 'mdc', 'mef', 'mos', 'mrw',
-                      'nef', 'nrw', 'obm', 'orf', 'pef', 'ptx', 'pxn', 'raf', 'raw', 'rwl', 'rw2', 'rwz', 'sr2',
-                      'srf', 'srw', 'tif', 'x3f')
-    image_extensions = ('jpg', 'png', 'tif')
-    movie_extensions = ('avchd', 'avi', 'mov', 'mp4')
+    raw_extensions = ('.3fr', '.ari', '.arw', '.bay', '.braw', '.crw', '.cr2', '.cr3', '.cap', '.dcs', '.dcr', '.x3f',
+                      '.dng', 'drf', '.eip', '.erf', '.fff', '.gpr', '.iiq', '.k25', '.kdc', '.mdc', '.mdc', '.mef',
+                      '.mos', '.mrw', 'nef', '.nrw', '.obm', '.orf', '.pef', '.ptx', '.pxn', '.raf', '.raw', '.rwl',
+                      '.rw2', '.rwz', '.sr2', 'srf', '.srw', '.tif')
+    image_extensions = ('.jpg', '.png', '.tif')
+    movie_extensions = ('avchd', '.avi', '.mov', '..mp4')
 
     if not only_raw:
         if file_path.lower().endswith(image_extensions) or file_path.lower().endswith(raw_extensions):
@@ -155,7 +155,7 @@ def ingest(ingest_logs, file_list, root_output_dir, config_file):
     duplicate_files = []
     file_path = []
     processed_files = []
-    ignored_volumes = []
+    ignored_volumes = ['C:\\']
     event_name = 0
 
     print('\033[?25l', end='')
@@ -210,9 +210,8 @@ def ingest(ingest_logs, file_list, root_output_dir, config_file):
 
                     for root, dirs, files in os.walk(entry):
                         for name in files:
-                            if 'C:' not in root:
-                                if 'OneDrive' not in dirs:
-                                    file_path.append(os.path.join(root, name))
+                            if 'OneDrive' not in dirs:
+                                file_path.append(os.path.join(root, name))
 
             print(f'\n {len(file_path)} files to process\n')
 
@@ -506,9 +505,13 @@ def main():
 
         try:
             if os.name == 'nt':
+                app_dir = ""
                 output_directory = config['Program']['Default Output'].split('/')
                 for output in output_directory:
-                    app_dir = app_dir + '/' + output
+                    if not app_dir:
+                        app_dir = output
+                    else:
+                        app_dir = app_dir + '\\' + output
             else:
                 app_dir = config['Program']['Default Output']
 
