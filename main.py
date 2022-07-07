@@ -33,7 +33,7 @@ def notify(title, text):
                   osascript -e 'display notification "{}" with title "{}"'
                   """.format(text, title))
     elif os.name == 'nt':
-        os.system('echo msgbox "the message that you want" > "%temp%\popup.vbs" wscript.exe "%temp%\popup.vbs"')
+        os.system(f'echo msgbox "{text}" > "%temp%\popup.vbs" wscript.exe "%temp%\popup.vbs"')
     else:
         pass
 
