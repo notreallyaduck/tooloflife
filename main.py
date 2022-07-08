@@ -1,6 +1,7 @@
 import math
 import os
 import shutil
+import socket
 import stat
 import string
 import sys
@@ -12,6 +13,8 @@ import tkinter as tk
 from tkinter import filedialog
 import ctypes
 import configparser
+import smtplib
+from email.message import EmailMessage
 
 
 class Colour:
@@ -39,7 +42,7 @@ def notify(title, text):
 
 
 def write(config_file):
-    with open('config.conf', 'w') as configfile:
+    with open(f'config.conf', 'w') as configfile:
         config_file.write(configfile)
 
 
@@ -72,9 +75,9 @@ def has_hidden_attribute(filepath, file_name):
 
 def about():
     print(f'\n{Colour.BOLD}{Colour.RED} About this tool\n{Colour.END}'
-          '\n This is a tool designed to help streamline the processes regarding file management within the PSHS '
-          '\n Multimedia Team.\n'
-          '\n Sudesh Arunachalam sends his highest regards on the survival of anyone who uses this piece of software.')
+          '\n This is a tool designed to help streamline the processes for file management within the PSHS '
+          ' Multimedia Team.\n'
+          '\n Sudesh Arunachalam sends his best wishes on the survival of anyone who uses this piece of software.')
     print('\033[?25l', end='')
     input('\n Press "Enter" to go back to the main menu')
     print('\033[?25h', end='')
@@ -156,7 +159,7 @@ def ingest(ingest_logs, file_list, root_output_dir, config_file):
     file_path = []
     processed_files = []
     ignored_volumes = ['C:\\']
-    event_name = 0
+    event_name = ''
 
     print('\033[?25l', end='')
     print(f'\n{Colour.BOLD}{Colour.RED} Ingest Mode\n{Colour.END}'
@@ -300,7 +303,7 @@ def ingest(ingest_logs, file_list, root_output_dir, config_file):
                 input(f'{Colour.BOLD}{Colour.RED} Ingest Complete{Colour.END}\n Press "Enter" to return to main menu')
                 print('\033[?25h', end='')
 
-                return output_path
+                return output_path, event_name
 
             if more_files in ['Yes', 'yes', 'Y', 'y', 'YES']:
                 print(' Looking for new drives')
@@ -314,9 +317,11 @@ def ingest(ingest_logs, file_list, root_output_dir, config_file):
         print('\033[?25h', end='')
 
 
-def delegate(delegate_logs, output, config_file):
+def delegate(delegate_logs, output, event_name, config_file):
     available_files = []
+    file_names = []
     accounted_files = []
+    copied_files = []
     new_folder = ""
     files_out = output
     cancel_delegate = False
@@ -326,6 +331,7 @@ def delegate(delegate_logs, output, config_file):
     all_files = ('3', 'all', 'everything', 'all of it mate')
     mode = ""
 
+    print(event_name)
     print(f'{Colour.BOLD}{Colour.RED}\n Delegate Mode\n{Colour.END}')
 
     if files_out:
@@ -354,9 +360,13 @@ def delegate(delegate_logs, output, config_file):
 
     if not cancel_delegate:
         while not files_out:
-            root = tk.Tk()
-            root.withdraw()
+            delegate_dir = tk.Tk()
+            delegate_dir.withdraw()
             files_out = filedialog.askdirectory()
+
+        while not event_name:
+            event_name = input(f"What event are these files from?\n {Colour.BOLD}{Colour.GREEN}> ")
+            print(Colour.END)
 
         while not mode:
             selected_mode = input(f' What files would you like to delegate from {str(files_out)}?'
@@ -444,9 +454,13 @@ def delegate(delegate_logs, output, config_file):
                         return
 
                     for file in my_files:
+                        file_directories = file.split("/")
+
                         print(' ' + file)
                         shutil.copy(file, path)
                         this_editor.append(file)
+                        copied_files.append(file)
+                        file_names.append(file_directories[-1])
 
                     print(f' {name} was delegated {len(this_editor)} files in folder {path}\n')
 
@@ -460,6 +474,8 @@ def delegate(delegate_logs, output, config_file):
             print('\033[?25l', end='')
             input(f'{Colour.BOLD}{Colour.GREEN} Delegate Complete{Colour.END}\n Press "Enter" to return to main menu')
             print('\033[?25h', end='')
+
+            return names, file_names, event_name
     else:
         print('\033[?25l', end='')
         input(f'{Colour.BOLD}{Colour.RED} Delegate Cancelled{Colour.END}\n Press "Enter" to return to main menu')
@@ -478,11 +494,83 @@ def logs(stored_logs):
     return 0
 
 
+def notify_editors(names, files, event, config, notify_logs):
+
+    name_string = ''
+    editor_files = ''
+
+    editor_emails = []
+    for index, editor in enumerate(names):
+        if not name_string:
+            name_string = editor.strip()
+        else:
+            name_string = name_string + ', ' + editor.strip()
+
+        if not editor_files:
+            editor_files = editor_files + editor.strip()
+        else:
+            editor_files = editor_files + '\n\n' + editor.strip()
+
+        try:
+            editor_emails.append(config['Emails'][editor.strip()])
+            print(f" Sending an email to {editor.strip()} at {config['Emails'][editor.strip()]}")
+        except KeyError:
+            print(f' Email for editor {editor.strip()} was not found')
+
+        each_user = math.ceil(len(files) / len(names))
+        files_before = each_user * (index - 1)
+
+        for x in range(each_user):
+            editor_files = editor_files + ('\n' + files[files_before + x])
+
+    gmail_user = "tooloflifemm@gmail.com"
+    gmail_password = "zafc qtob cqtf ymfy"
+
+    msg = EmailMessage()
+    msg.set_content(f"Files to edit for '{event}' for {name_string}"
+                    f"\n\n{editor_files}"
+                    f"\n\nFiles will be available on google drive shortly."
+                    f"\nDelegated by {config['Program']['Name']}")
+
+    msg['Subject'] = f"Files to process for {event}"
+    msg['From'] = "tooloflife"
+    msg['To'] = editor_emails
+
+    try:
+        server = smtplib.SMTP('smtp.gmail.com', 587)
+        server.ehlo()
+        server.starttls()
+        server.login(gmail_user, gmail_password)
+
+    except socket.gaierror:
+        print(' Could not connect to Gmail. Returning to main menu.')
+        sleep(5)
+        return
+
+    except smtplib.SMTPAuthenticationError:
+        print(' Failed to connect')
+        return
+
+    server.send_message(msg)
+    server.close()
+    print(' Email sent')
+    new_log = (f'[{str(datetime.today())}] Notified {name_string} for {event} by ' + config['Program']['Name'])
+    notify_logs.append(new_log)
+
+
+def preferences():
+    print("Preferences")
+
+
 def main():
     app_dir = "Not Set"
+    version_number = "2.0.0"
     path = ''
     stored_logs = []
+    current_event = ''
     stored_files = []
+    editors, editor_pictures = [], []
+
     config = configparser.ConfigParser()
 
     if sys.executable.endswith('tooloflife'):
@@ -498,9 +586,9 @@ def main():
     else:
         config.read(f'{os.getcwd()}/config.conf')
 
-        try:
-            config['Program']
-        except KeyError:
+        if config.has_section('Program'):
+            pass
+        else:
             config.add_section('Program')
 
         try:
@@ -543,8 +631,8 @@ def main():
         print('\033[?25h', end='')
 
     while not app_dir or app_dir == "/" or app_dir == "Not Set":
-        window = tk.Tk()
-        window.withdraw()
+        dir_select = tk.Tk()
+        dir_select.withdraw()
         app_dir = filedialog.askdirectory()
         set_default = input(" Would you like to save this as your default output directory?"
                             f"\n {Colour.BOLD}{Colour.GREEN}> ").strip().lower()
@@ -562,7 +650,6 @@ def main():
         os.system("mode 150,39")
 
     sleep(0.5)
-
     while True:
         if os.name == 'posix':
             os.system('clear')
@@ -573,7 +660,7 @@ def main():
 
         print(f'{Colour.BOLD}{Colour.RED}\n Main Menu\n{Colour.END}')
         sleep(0.1)
-        print(' ' + str(config['Program']['Name']) + ' - tooloflife v1.2.0 (' + os.name + ')')
+        print(' ' + str(config['Program']['Name']) + f' - tooloflife v{version_number} (' + os.name + ')')
         sleep(0.1)
         print(' Output directory: ' + app_dir)
         sleep(0.1)
@@ -584,10 +671,15 @@ def main():
 
         print('\n [0] About'
               '\n [1] Ingest'
-              '\n [2] Delegate'
-              '\n [3] Logs'
-              '\n [4] Open Folder'
-              '\n [5] Quit')
+              '\n [2] Delegate')
+        if config.has_section('Emails') and editors:
+            print(' [3] Notify Editors')
+        else:
+            print(f' [3] Notify Editors (Unavailable)')
+        print(' [4] Logs'
+              '\n [5] Open Folder'
+              '\n [6] Preferences'
+              '\n [7] Quit')
         current_menu = input(f' {Colour.BOLD}{Colour.GREEN}> ').strip().lower()
         print(Colour.END)
 
@@ -599,14 +691,31 @@ def main():
         if current_menu == '0' or current_menu == 'about':
             about()
         elif current_menu == '1' or current_menu == 'ingest':
-            path = ingest(stored_logs, stored_files, app_dir, config)
+            path, current_event = ingest(stored_logs, stored_files, app_dir, config)
         elif current_menu == '2' or current_menu == 'delegate':
-            delegate(stored_logs, path, config)
-        elif current_menu == '3' or current_menu == 'logs':
+            editors, editor_pictures, current_event = delegate(stored_logs, path, current_event, config)
+        elif current_menu == '3' or current_menu == 'notify' and config.has_section('Emails') and editors:
+            if not config.has_section('Emails'):
+                print('\033[?25l', end='')
+                input(f'{Colour.BOLD}{Colour.RED} There are no emails stored, check your config file.{Colour.END}'
+                      f'\n Press "Enter" to return to main menu')
+                print('\033[?25h', end='')
+
+            if not editors:
+                print('\033[?25l', end='')
+                input(f'{Colour.BOLD}{Colour.RED} Delegate first before attempting to notify{Colour.END}'
+                      f'\n Press "Enter" to return to main menu')
+                print('\033[?25h', end='')
+
+            else:
+                notify_editors(editors, editor_pictures, current_event, config, stored_logs)
+        elif current_menu == '4' or current_menu == 'logs':
             logs(stored_logs)
-        elif current_menu == '4' or current_menu == 'open folder':
+        elif current_menu == '5' or current_menu == 'open folder':
             webbrowser.open('file:///' + os.path.realpath(app_dir))
-        elif current_menu == '5' or current_menu == 'quit' or current_menu == 'exit':
+        elif current_menu == '6' or current_menu == 'preferences' or current_menu == 'settings':
+            preferences(config)
+        elif current_menu == '7' or current_menu == 'quit' or current_menu == 'exit':
             break
         else:
             print(' Select a valid option')
