@@ -30,6 +30,15 @@ class Colour:
     END = '\033[0m'
 
 
+def clear_screen():
+    if os.name == 'posix':
+        os.system('clear')
+        print("\x1b[8;40;150t")
+    elif os.name == 'nt':
+        os.system('cls')
+        os.system("mode 150,40")
+
+
 def notify(title, text):
     if os.name == 'posix':
         os.system("""
@@ -315,6 +324,7 @@ def ingest(ingest_logs, file_list, root_output_dir, config_file):
         print('\033[?25l', end='')
         input(f'{Colour.BOLD}{Colour.RED} Ingest Cancelled{Colour.END}\n Press "Enter" to return to main menu')
         print('\033[?25h', end='')
+        return None, None
 
 
 def delegate(delegate_logs, output, event_name, config_file):
@@ -331,7 +341,6 @@ def delegate(delegate_logs, output, event_name, config_file):
     all_files = ('3', 'all', 'everything', 'all of it mate')
     mode = ""
 
-    print(event_name)
     print(f'{Colour.BOLD}{Colour.RED}\n Delegate Mode\n{Colour.END}')
 
     if files_out:
@@ -480,6 +489,7 @@ def delegate(delegate_logs, output, event_name, config_file):
         print('\033[?25l', end='')
         input(f'{Colour.BOLD}{Colour.RED} Delegate Cancelled{Colour.END}\n Press "Enter" to return to main menu')
         print('\033[?25h', end='')
+        return None, None, None
 
 
 def logs(stored_logs):
@@ -495,7 +505,6 @@ def logs(stored_logs):
 
 
 def notify_editors(names, files, event, config, notify_logs):
-
     name_string = ''
     editor_files = ''
 
@@ -558,8 +567,74 @@ def notify_editors(names, files, event, config, notify_logs):
     notify_logs.append(new_log)
 
 
-def preferences():
-    print("Preferences")
+def preferences(config_file):
+    while True:
+        print(f'{Colour.BOLD}{Colour.RED}\n Preferences{Colour.END}')
+
+        selected_option = input('\n [0] View or add to email list'
+                                '\n [1] Change default directory'
+                                '\n [2] Change displayed name'
+                                '\n [3] Clear logs'
+                                f'\n [4] Return to main menu{Colour.BOLD}{Colour.GREEN}\n > ').strip().lower()
+        print(Colour.END)
+
+        if selected_option == '0' or selected_option == 'email list' or selected_option == 'add email':
+            email_list = str(config_file.items('Emails'))
+            names_emails = email_list.split('), (')
+
+            for person in names_emails:
+                print(person)
+
+            new_input = input(' Type the new name and email separated by a comma (name, name@gmail.com)'
+                              f'\n Enter "Cancel" to abort{Colour.BOLD}{Colour.GREEN}\n > ').strip().lower()
+            print(Colour.END)
+
+            if new_input == 'cancel' or new_input == 'abort':
+                return
+            else:
+                email_to_add = new_input.split(',')
+                print(new_input)
+                config_file.set('Emails', email_to_add[0].strip(), email_to_add[1].strip())
+                write(config_file)
+                clear_screen()
+                print(f"\n {Colour.BOLD}{Colour.GREEN}Email for {email_to_add[0].strip()} added.")
+                print(Colour.END)
+                sleep(2)
+
+        elif selected_option == '1' or selected_option == 'change default' or selected_option == 'change directory':
+            dir_select = tk.Tk()
+            dir_select.withdraw()
+            new_dir = filedialog.askdirectory()
+            config_file.set('Program', 'default output', new_dir)
+            write(config_file)
+            clear_screen()
+            print(f"\n {Colour.BOLD}{Colour.GREEN}Default directory changed ")
+            print(Colour.END)
+            sleep(2)
+
+        elif selected_option == '2' or selected_option == 'change name' or selected_option == 'name':
+            new_name = input(f' Choose the name you would like to use{Colour.BOLD}{Colour.GREEN}\n > ').strip().lower()
+            print(Colour.END)
+            config_file.set('Program', 'Name', new_name)
+            write(config_file)
+            clear_screen()
+            print(f"\n {Colour.BOLD}{Colour.GREEN}Name changed ")
+            print(Colour.END)
+            sleep(2)
+
+        elif selected_option == '3' or selected_option == 'clear logs' or selected_option == 'empty logs':
+            print('\033[?25l', end='')
+            input(' Press "Enter" to clear logs')
+            print('\033[?25h', end='')
+            config_file.set('Program', 'Logs', '')
+            write(config_file)
+            clear_screen()
+            print(f"\n {Colour.BOLD}{Colour.GREEN}Logs cleared ")
+            print(Colour.END)
+            sleep(2)
+
+        elif selected_option == '4' or selected_option == 'main menu' or selected_option == 'return':
+            break
 
 
 def main():
@@ -609,12 +684,7 @@ def main():
 
     stored_logs.append(f'[{str(datetime.today())}] New session created')
 
-    if os.name == 'posix':
-        os.system('clear')
-        print("\x1b[8;40;150t")
-    elif os.name == 'nt':
-        os.system('cls')
-        os.system("mode 150,40")
+    clear_screen()
 
     try:
         if config['Program']['Name'] is None:
@@ -642,19 +712,22 @@ def main():
 
     write(config)
 
-    if os.name == 'posix':
-        os.system('clear')
-        print("\x1b[8;39;150t")
-    elif os.name == 'nt':
-        os.system('cls')
-        os.system("mode 150,39")
+    clear_screen()
 
     sleep(0.5)
     while True:
-        if os.name == 'posix':
-            os.system('clear')
-        elif os.name == 'nt':
-            os.system('cls')
+
+        if os.name == 'nt':
+            output_directory = config['Program']['Default Output'].split('/')
+            for output in output_directory:
+                if not app_dir:
+                    app_dir = output
+                else:
+                    app_dir = app_dir + '\\' + output
+        else:
+            app_dir = config['Program']['Default Output']
+
+        clear_screen()
 
         print('\033[?25l', end='')
 
@@ -683,10 +756,7 @@ def main():
         current_menu = input(f' {Colour.BOLD}{Colour.GREEN}> ').strip().lower()
         print(Colour.END)
 
-        if os.name == 'posix':
-            os.system('clear')
-        elif os.name == 'nt':
-            os.system('cls')
+        clear_screen()
 
         if current_menu == '0' or current_menu == 'about':
             about()
