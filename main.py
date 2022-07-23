@@ -18,6 +18,9 @@ from email.message import EmailMessage
 
 
 class Colour:
+    def __init__(self):
+        pass
+
     PURPLE = '\033[95m'
     CYAN = '\033[96m'
     DARKCYAN = '\033[36m'
@@ -515,16 +518,11 @@ def notify_editors(names, files, event, config, notify_logs):
         else:
             name_string = name_string + ', ' + editor.strip()
 
-        if not editor_files:
-            editor_files = editor_files + editor.strip()
-        else:
-            editor_files = editor_files + '\n\n' + editor.strip()
-
         try:
-            editor_emails.append(config['Emails'][editor.strip()])
-            print(f" Sending an email to {editor.strip()} at {config['Emails'][editor.strip()]}")
+            editor_emails.append(config['Emails'][name_string])
+            print(f" Sending an email to {name_string} at {config['Emails'][name_string]}")
         except KeyError:
-            print(f' Email for editor {editor.strip()} was not found')
+            print(f' Email for editor {name_string} was not found')
 
         each_user = math.ceil(len(files) / len(names))
         files_before = each_user * (index - 1)
@@ -536,8 +534,7 @@ def notify_editors(names, files, event, config, notify_logs):
     gmail_password = "zafc qtob cqtf ymfy"
 
     msg = EmailMessage()
-    msg.set_content(f"Files to edit for '{event}' for {name_string}"
-                    f"\n\n{editor_files}"
+    msg.set_content(f"{name_string} has {len(editor_files)} to edit"
                     f"\n\nFiles will be available on google drive shortly."
                     f"\nDelegated by {config['Program']['Name']}")
 
@@ -579,11 +576,15 @@ def preferences(config_file):
         print(Colour.END)
 
         if selected_option == '0' or selected_option == 'email list' or selected_option == 'add email':
-            email_list = str(config_file.items('Emails'))
-            names_emails = email_list.split('), (')
+            try:
+                email_list = str(config_file.items('Emails'))
+                names_emails = email_list.split('), (')
+                for person in names_emails:
+                    print(' ' + person)
 
-            for person in names_emails:
-                print(person)
+            except configparser.NoSectionError:
+                config_file.add_section('Emails')
+                print(' No emails stored')
 
             new_input = input(' Type the new name and email separated by a comma (name, name@gmail.com)'
                               f'\n Enter "Cancel" to abort{Colour.BOLD}{Colour.GREEN}\n > ').strip().lower()
@@ -593,13 +594,14 @@ def preferences(config_file):
                 return
             else:
                 email_to_add = new_input.split(',')
-                print(new_input)
                 config_file.set('Emails', email_to_add[0].strip(), email_to_add[1].strip())
                 write(config_file)
                 clear_screen()
+                print('\033[?25l', end='')
                 print(f"\n {Colour.BOLD}{Colour.GREEN}Email for {email_to_add[0].strip()} added.")
                 print(Colour.END)
                 sleep(2)
+                print('\033[?25h', end='')
 
         elif selected_option == '1' or selected_option == 'change default' or selected_option == 'change directory':
             dir_select = tk.Tk()
@@ -608,9 +610,11 @@ def preferences(config_file):
             config_file.set('Program', 'default output', new_dir)
             write(config_file)
             clear_screen()
+            print('\033[?25l', end='')
             print(f"\n {Colour.BOLD}{Colour.GREEN}Default directory changed ")
             print(Colour.END)
             sleep(2)
+            print('\033[?25h', end='')
 
         elif selected_option == '2' or selected_option == 'change name' or selected_option == 'name':
             new_name = input(f' Choose the name you would like to use{Colour.BOLD}{Colour.GREEN}\n > ').strip().lower()
@@ -618,20 +622,24 @@ def preferences(config_file):
             config_file.set('Program', 'Name', new_name)
             write(config_file)
             clear_screen()
+            print('\033[?25l', end='')
             print(f"\n {Colour.BOLD}{Colour.GREEN}Name changed ")
             print(Colour.END)
             sleep(2)
+            print('\033[?25h', end='')
 
         elif selected_option == '3' or selected_option == 'clear logs' or selected_option == 'empty logs':
             print('\033[?25l', end='')
             input(' Press "Enter" to clear logs')
             print('\033[?25h', end='')
-            config_file.set('Program', 'Logs', '')
+            config_file.set('Program', 'logs', '')
             write(config_file)
             clear_screen()
+            print('\033[?25l', end='')
             print(f"\n {Colour.BOLD}{Colour.GREEN}Logs cleared ")
             print(Colour.END)
             sleep(2)
+            print('\033[?25h', end='')
 
         elif selected_option == '4' or selected_option == 'main menu' or selected_option == 'return':
             break
@@ -788,7 +796,10 @@ def main():
         elif current_menu == '7' or current_menu == 'quit' or current_menu == 'exit':
             break
         else:
-            print(' Select a valid option')
+            print('\033[?25l', end='')
+            print(f'{Colour.BOLD}{Colour.RED} Select a valid option{Colour.END}')
+            sleep(2)
+            print('\033[?25h', end='')
 
         logs_to_save = ""
         for log in stored_logs:
