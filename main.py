@@ -5,6 +5,7 @@ import socket
 import stat
 import string
 import sys
+import tkinter
 import webbrowser
 from datetime import datetime
 from time import sleep
@@ -672,7 +673,7 @@ def main():
         print('DISPLAY AVAILABLE')
         test.quit()
 
-    except KeyError:
+    except tkinter.TclError:
         cli_only = True
         print('CLI ONLY')
 
