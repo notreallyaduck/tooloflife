@@ -330,7 +330,7 @@ def ingest(ingest_logs, file_list, root_output_dir, config_file):
         return None, None
 
 
-def delegate(delegate_logs, output, event_name, config_file):
+def delegate(delegate_logs, output, event_name, config_file, cli):
     available_files = []
     file_names = []
     accounted_files = []
@@ -372,9 +372,14 @@ def delegate(delegate_logs, output, event_name, config_file):
 
     if not cancel_delegate:
         while not files_out:
-            delegate_dir = tk.Tk()
-            delegate_dir.withdraw()
-            files_out = filedialog.askdirectory()
+            if cli is False:
+                delegate_dir = tk.Tk()
+                delegate_dir.withdraw()
+                files_out = filedialog.askdirectory()
+            else:
+                delegate_dir = input('Type the directory you would like to delegate from'
+                                     f'\n {Colour.BOLD}{Colour.GREEN}> ').strip().lower()
+                files_out = delegate_dir
 
         while not event_name:
             event_name = input(f"What event are these files from?\n {Colour.BOLD}{Colour.GREEN}> ")
@@ -564,7 +569,7 @@ def notify_editors(names, files, event, config, notify_logs):
     notify_logs.append(new_log)
 
 
-def preferences(config_file):
+def preferences(config_file, cli):
     while True:
         print(f'{Colour.BOLD}{Colour.RED}\n Preferences{Colour.END}')
 
@@ -604,9 +609,14 @@ def preferences(config_file):
                 print('\033[?25h', end='')
 
         elif selected_option == '1' or selected_option == 'change default' or selected_option == 'change directory':
-            dir_select = tk.Tk()
-            dir_select.withdraw()
-            new_dir = filedialog.askdirectory()
+            if cli is False:
+                dir_select = tk.Tk()
+                dir_select.withdraw()
+                new_dir = filedialog.askdirectory()
+            else:
+                new_dir = input('Type the directory you would like to set as your default'
+                                f'\n {Colour.BOLD}{Colour.GREEN}> ').strip().lower()
+
             config_file.set('Program', 'default output', new_dir)
             write(config_file)
             clear_screen()
@@ -655,6 +665,16 @@ def main():
     editors, editor_pictures = [], []
 
     config = configparser.ConfigParser()
+
+    try:
+        test = tk.Tk()
+        cli_only = False
+        print('DISPLAY AVAILABLE')
+        test.quit()
+
+    except KeyError:
+        cli_only = True
+        print('CLI ONLY')
 
     if sys.executable.endswith('tooloflife'):
         cur_dir = sys.executable[:-10]
@@ -709,11 +729,16 @@ def main():
         print('\033[?25h', end='')
 
     while not app_dir or app_dir == "/" or app_dir == "Not Set":
-        dir_select = tk.Tk()
-        dir_select.withdraw()
-        app_dir = filedialog.askdirectory()
-        set_default = input(" Would you like to save this as your default output directory?"
-                            f"\n {Colour.BOLD}{Colour.GREEN}> ").strip().lower()
+        if cli_only is False:
+            dir_select = tk.Tk()
+            dir_select.withdraw()
+            app_dir = filedialog.askdirectory()
+        else:
+            app_dir = input('Type the directory you would like to set as your default'
+                            f'\n {Colour.BOLD}{Colour.GREEN}> ').strip().lower()
+
+        set_default = input(' Would you like to save this as your default output directory?'
+                            f'\n {Colour.BOLD}{Colour.GREEN}> ').strip().lower()
         print(Colour.END)
         if set_default == "yes" or "y" or "yeah":
             config.set('Program', 'Default Output', app_dir)
@@ -741,6 +766,7 @@ def main():
 
         print(f'{Colour.BOLD}{Colour.RED}\n Main Menu\n{Colour.END}')
         sleep(0.1)
+        print(" CLI only: " + str(cli_only))
         print(' ' + str(config['Program']['Name']) + f' - tooloflife v{version_number} (' + os.name + ')')
         sleep(0.1)
         print(' Output directory: ' + app_dir)
@@ -771,7 +797,7 @@ def main():
         elif current_menu == '1' or current_menu == 'ingest':
             path, current_event = ingest(stored_logs, stored_files, app_dir, config)
         elif current_menu == '2' or current_menu == 'delegate':
-            editors, editor_pictures, current_event = delegate(stored_logs, path, current_event, config)
+            editors, editor_pictures, current_event = delegate(stored_logs, path, current_event, config, cli_only)
         elif current_menu == '3' or current_menu == 'notify' and config.has_section('Emails') and editors:
             if not config.has_section('Emails'):
                 print('\033[?25l', end='')
@@ -792,7 +818,7 @@ def main():
         elif current_menu == '5' or current_menu == 'open folder':
             webbrowser.open('file:///' + os.path.realpath(app_dir))
         elif current_menu == '6' or current_menu == 'preferences' or current_menu == 'settings':
-            preferences(config)
+            preferences(config, cli_only)
         elif current_menu == '7' or current_menu == 'quit' or current_menu == 'exit':
             break
         else:
